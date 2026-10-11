@@ -68,6 +68,9 @@ resources:
 
 podSecurityContext:
   runAsNonRoot: true
+  # Das aspnet-Image läuft als APP_UID 1654; fsGroup macht das PVC für diesen Nutzer beschreibbar.
+  fsGroup: 1654
+  fsGroupChangePolicy: OnRootMismatch
 securityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
