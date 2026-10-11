@@ -50,13 +50,15 @@ Konventionen:
 
 Image: `ghcr.io/swmsconsulting/dataspacedrive`, gebaut von [.github/workflows/build.yml](.github/workflows/build.yml).
 
-Das Deployment je Teilnehmer übernimmt [.github/workflows/deploy.yml](.github/workflows/deploy.yml). Es braucht diese Secrets:
+Das Deployment je Teilnehmer übernimmt [.github/workflows/deploy.yml](.github/workflows/deploy.yml); es braucht nur `KUBECONFIG_<TEILNEHMER>` oder `KUBECONFIG` (Base64). Die Geheimnisse liegen als Secret im Namespace und werden einmalig angelegt:
 
-| Secret | Inhalt |
-|---|---|
-| `<TEILNEHMER>_EDC_API_KEY` | Management-API-Key des eigenen Connectors |
-| `<TEILNEHMER>_DELIVERY_TOKEN_KEY` | Schlüssel für die Zustell-Tokens, Base64 mit mindestens 32 Bytes, z. B. `openssl rand -base64 32` |
-| `KUBECONFIG_<TEILNEHMER>` oder `KUBECONFIG` | Base64-kodierte Kubeconfig |
+```bash
+kubectl -n windx-<teilnehmer> create secret generic dataspace-drive-<teilnehmer>-secrets \
+  --from-literal=edc-api-key='<Management-API-Key des eigenen Connectors>' \
+  --from-literal=delivery-token-key-1="$(openssl rand -base64 32)"
+```
+
+Der Token-Schlüssel muss stabil bleiben: Er steckt in den `authCode`s aller veröffentlichten Zustell-Assets. Zum Rotieren einen zusätzlichen Schlüssel `delivery-token-key-2` anlegen und die aktuelle Version umstellen; alte Zustellungen bleiben gültig.
 
 Hinweise für das erste Deployment:
 - Die NetworkPolicy lässt Port 8080 nur aus `ingress-nginx` und Port 8090 nur aus den Dataplane-Pods zu. Beim ersten Rollout prüfen, dass die HTTP-Probes des Kubelets durchkommen (Calico erlaubt Verkehr vom eigenen Node üblicherweise).

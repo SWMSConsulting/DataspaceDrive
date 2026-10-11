@@ -1,5 +1,5 @@
-# Instanz für dave (windx-Dataspace). Geheimnisse NICHT hier ablegen, sondern beim Deploy per --set
-# oder existingSecret setzen.
+# Instanz für dave (windx-Dataspace). Die Geheimnisse liegen im Secret dataspace-drive-dave-secrets
+# (Schlüssel edc-api-key, delivery-token-key-1); Anlage siehe README, Abschnitt Deployment.
 fullnameOverride: dataspace-drive-dave
 
 participant:
@@ -13,3 +13,8 @@ edc:
 ingress:
   host: drive-dave-windx.cluster.swms-cloud.com
   tlsSecretName: dataspace-drive-dave-tls
+
+existingSecret: dataspace-drive-dave-secrets
+
+storage:
+  size: 5Gi

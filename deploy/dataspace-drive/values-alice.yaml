@@ -1,5 +1,5 @@
-# Instanz für alice (windx-Dataspace). Geheimnisse NICHT hier ablegen, sondern beim Deploy per --set
-# oder existingSecret setzen.
+# Instanz für alice (windx-Dataspace). Die Geheimnisse liegen im Secret dataspace-drive-alice-secrets
+# (Schlüssel edc-api-key, delivery-token-key-1); Anlage siehe README, Abschnitt Deployment.
 fullnameOverride: dataspace-drive-alice
 
 participant:
@@ -13,3 +13,8 @@ edc:
 ingress:
   host: drive-alice-windx.cluster.swms-cloud.com
   tlsSecretName: dataspace-drive-alice-tls
+
+existingSecret: dataspace-drive-alice-secrets
+
+storage:
+  size: 5Gi

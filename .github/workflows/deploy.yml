@@ -42,20 +42,13 @@ jobs:
       - uses: azure/setup-helm@v4
         if: steps.guard.outputs.skip != 'true'
 
-      # Ohne diese Prüfung würde helm fehlende Werte leer setzen und bestehende Secrets überschreiben.
-      - name: Check required secrets
+      - name: Check kubeconfig secret
         if: steps.guard.outputs.skip != 'true'
         env:
-          EDC_API_KEY: ${{ secrets[format('{0}_EDC_API_KEY', matrix.prefix)] }}
-          DELIVERY_TOKEN_KEY: ${{ secrets[format('{0}_DELIVERY_TOKEN_KEY', matrix.prefix)] }}
           KUBECONFIG_B64: ${{ secrets[format('KUBECONFIG_{0}', matrix.prefix)] || secrets.KUBECONFIG }}
         run: |
-          missing=""
-          [ -n "$KUBECONFIG_B64" ] || missing="$missing KUBECONFIG_${{ matrix.prefix }} (oder KUBECONFIG)"
-          [ -n "$EDC_API_KEY" ] || missing="$missing ${{ matrix.prefix }}_EDC_API_KEY"
-          [ -n "$DELIVERY_TOKEN_KEY" ] || missing="$missing ${{ matrix.prefix }}_DELIVERY_TOKEN_KEY"
-          if [ -n "$missing" ]; then
-            echo "::error::Fehlende GitHub-Secrets:$missing"
+          if [ -z "$KUBECONFIG_B64" ]; then
+            echo "::error::Fehlendes GitHub-Secret KUBECONFIG_${{ matrix.prefix }} (oder KUBECONFIG)"
             exit 1
           fi
 
@@ -68,16 +61,19 @@ jobs:
           printf '%s' "$KUBECONFIG_B64" | base64 -d > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
 
+      # Die Geheimnisse liegen als Secret im Namespace (existingSecret in values-<teilnehmer>.yaml), damit sie
+      # weder in GitHub noch in der Helm-Release-Historie stehen und der Token-Schlüssel stabil bleibt.
+      - name: Check participant secret
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          kubectl -n "windx-${{ matrix.participant }}" get secret "dataspace-drive-${{ matrix.participant }}-secrets" > /dev/null \
+            || { echo "::error::Secret dataspace-drive-${{ matrix.participant }}-secrets fehlt (siehe README)"; exit 1; }
+
       - name: Helm upgrade ${{ matrix.participant }}
         if: steps.guard.outputs.skip != 'true'
-        env:
-          EDC_API_KEY: ${{ secrets[format('{0}_EDC_API_KEY', matrix.prefix)] }}
-          DELIVERY_TOKEN_KEY: ${{ secrets[format('{0}_DELIVERY_TOKEN_KEY', matrix.prefix)] }}
         run: |
           helm upgrade --install "dataspace-drive-${{ matrix.participant }}" deploy/dataspace-drive \
             --namespace "windx-${{ matrix.participant }}" \
             -f "deploy/dataspace-drive/values-${{ matrix.participant }}.yaml" \
             --set image.tag="${{ inputs.image_tag }}" \
-            --set secrets.edcApiKey="$EDC_API_KEY" \
-            --set secrets.deliveryTokenKey="$DELIVERY_TOKEN_KEY" \
             --wait --timeout 5m
