@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using DataspaceDrive.Api;
 using DataspaceDrive.Api.Auth;
+using DataspaceDrive.Core.Files;
 using DataspaceDrive.Infrastructure;
 using DataspaceDrive.Infrastructure.Persistence;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -70,16 +71,18 @@ app.UseDriveAntiforgery();
 
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 
-app.MapGet("/api/config", (IConfiguration cfg) => Results.Ok(new
+app.MapGet("/api/config", (IConfiguration cfg, IUploadService uploads) => Results.Ok(new
 {
     participantId = cfg["Drive:Participant:Id"],
     bpn = cfg["Drive:Participant:Bpn"],
     dspAddress = cfg["Drive:Participant:DspAddress"],
     edcProfile = cfg["Drive:Edc:VersionProfile"],
+    maxUploadBytes = uploads.MaxFileSize,
 })).RequireAuthorization(AuthSetup.UserPolicy);
 
 app.MapAuthEndpoints(app.Configuration);
 app.MapFileEndpoints();
+app.MapAdminEndpoints();
 app.MapContentEndpoints();
 app.MapFallbackToFile("index.html");
 

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 
+import { adminGuard } from './core/admin.guard';
 import { authGuard } from './core/auth.guard';
 import { Shell } from './shell/shell';
 
@@ -17,7 +18,7 @@ export const routes: Routes = [
       { path: 'inbox', loadComponent: () => import('./features/inbox/inbox').then((m) => m.Inbox) },
       { path: 'partners', loadComponent: () => import('./features/partners/partners').then((m) => m.Partners) },
       { path: 'activity', loadComponent: () => import('./features/activity/activity').then((m) => m.Activity) },
-      { path: 'admin', loadComponent: () => import('./features/admin/admin').then((m) => m.Admin) },
+      { path: 'admin', canActivate: [adminGuard], loadComponent: () => import('./features/admin/admin').then((m) => m.Admin) },
       { path: 'settings', loadComponent: () => import('./features/settings/settings').then((m) => m.Settings) },
     ],
   },

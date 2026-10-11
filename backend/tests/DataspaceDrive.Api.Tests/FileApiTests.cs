@@ -3,46 +3,20 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
+using DataspaceDrive.Infrastructure.Files;
+using DataspaceDrive.Infrastructure.Persistence;
 using DataspaceDrive.Infrastructure.Scanning;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using static DataspaceDrive.Api.Tests.ApiTestHelpers;
 
 namespace DataspaceDrive.Api.Tests;
 
 public sealed class FileApiTests : IClassFixture<DriveApiFactory>
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly DriveApiFactory _factory;
 
     public FileApiTests(DriveApiFactory factory) => _factory = factory;
-
-    private static async Task<JsonElement> ReadAsync(HttpResponseMessage response)
-    {
-        Assert.True(response.IsSuccessStatusCode, $"{(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
-        return await response.Content.ReadFromJsonAsync<JsonElement>(Json);
-    }
-
-    private static async Task<Guid> RootFolderAsync(HttpClient client)
-    {
-        var spaces = await ReadAsync(await client.GetAsync("/api/spaces"));
-        return spaces.EnumerateArray().Single(s => s.GetProperty("kind").GetString() == "Personal").GetProperty("rootFolderId").GetGuid();
-    }
-
-    private static async Task<JsonElement> UploadAsync(HttpClient client, Guid folderId, string name, byte[] content, string? contentType = null)
-    {
-        var ticket = await ReadAsync(await client.PostAsJsonAsync("/api/uploads", new { folderId, fileName = name, size = content.Length }));
-        var uploadId = ticket.GetProperty("uploadId").GetGuid();
-        var chunkSize = ticket.GetProperty("chunkSize").GetInt32();
-        var index = 0;
-        for (var offset = 0; offset < content.Length || (content.Length == 0 && index == 0); offset += chunkSize, index++)
-        {
-            var part = new ByteArrayContent(content, offset, Math.Min(chunkSize, content.Length - offset));
-            part.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-            (await client.PutAsync($"/api/uploads/{uploadId}/chunks/{index}", part)).EnsureSuccessStatusCode();
-            if (content.Length == 0)
-                break;
-        }
-        return await ReadAsync(await client.PostAsJsonAsync($"/api/uploads/{uploadId}/complete", new { contentType }));
-    }
 
     [Fact]
     public async Task First_request_provisions_user_with_personal_space()
@@ -255,6 +229,7 @@ public sealed class FileApiTests : IClassFixture<DriveApiFactory>
             Assert.Contains("Eicar-Test-Signature", await blocked.Content.ReadAsStringAsync());
 
             _factory.Scanner.MaxBytes = 4;
+            Assert.Equal(4, (await ReadAsync(await client.GetAsync("/api/config"))).GetProperty("maxUploadBytes").GetInt64());
             var tooLarge = await client.PostAsJsonAsync("/api/uploads", new { folderId = root, fileName = "gross.bin", size = 5 });
             Assert.Equal(HttpStatusCode.BadRequest, tooLarge.StatusCode);
             Assert.Contains("Virenscan", await tooLarge.Content.ReadAsStringAsync());
@@ -264,5 +239,31 @@ public sealed class FileApiTests : IClassFixture<DriveApiFactory>
             _factory.Scanner.Enabled = false;
             _factory.Scanner.MaxBytes = null;
         }
+    }
+
+    [Fact]
+    public async Task Expired_uploads_are_cleaned_up_with_their_chunks()
+    {
+        var client = await _factory.ClientForAsync("cleanup-user");
+        var root = await RootFolderAsync(client);
+        var ticket = await ReadAsync(await client.PostAsJsonAsync("/api/uploads", new { folderId = root, fileName = "halb.bin", size = 10 }));
+        var uploadId = ticket.GetProperty("uploadId").GetGuid();
+        var part = new ByteArrayContent(new byte[4]);
+        part.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        (await client.PutAsync($"/api/uploads/{uploadId}/chunks/0", part)).EnsureSuccessStatusCode();
+        var staged = Path.Combine(_factory.DataRoot, "uploads", uploadId.ToString("N"));
+        Assert.True(File.Exists(staged));
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<DriveDbContext>();
+            (await db.UploadSessions.SingleAsync(u => u.Id == uploadId)).ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
+            await db.SaveChangesAsync();
+        }
+
+        var removed = await ActivatorUtilities.CreateInstance<UploadCleanupWorker>(_factory.Services).CleanupAsync(CancellationToken.None);
+
+        Assert.True(removed >= 1);
+        Assert.False(File.Exists(staged));
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PutAsync($"/api/uploads/{uploadId}/chunks/1", part)).StatusCode);
     }
 }

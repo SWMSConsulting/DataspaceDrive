@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { DxButtonModule } from 'devextreme-angular/ui/button';
 import { DxDataGridModule } from 'devextreme-angular/ui/data-grid';
 import { DxFileManagerModule } from 'devextreme-angular/ui/file-manager';
@@ -7,8 +7,10 @@ import CustomFileSystemProvider from 'devextreme/file_management/custom_provider
 import FileSystemError from 'devextreme/file_management/error';
 import FileSystemItem from 'devextreme/file_management/file_system_item';
 import UploadInfo from 'devextreme/file_management/upload_info';
+import { CurrentDirectoryChangedEvent } from 'devextreme/ui/file_manager';
 
-import { DriveApiService, DriveItem, errorText } from '../../core/drive-api.service';
+import { ConfigService } from '../../core/config.service';
+import { DriveApiService, DriveItem, SpaceInfo, errorText } from '../../core/drive-api.service';
 import { downloadFile, formatBytes, scanLabel } from '../../shared/format';
 
 /** Ordner bzw. Bereich im FileManager; Bereiche zeigen auf ihren Wurzelordner. */
@@ -33,6 +35,11 @@ interface FileData {
 
 const otherError = 32767;
 const uploadChunkSize = 8 * 1024 * 1024;
+const defaultMaxUpload = 10 * 1024 * 1024 * 1024;
+
+const writablePermissions = { create: true, copy: false, move: true, delete: true, rename: true, upload: true, download: true };
+// In der Wurzel stehen nur die Bereiche; dort und in Bereichen mit Leserecht ist nichts änderbar.
+const readOnlyPermissions = { create: false, copy: false, move: false, delete: false, rename: false, upload: false, download: true };
 
 @Component({
   selector: 'app-files',
@@ -42,13 +49,20 @@ const uploadChunkSize = 8 * 1024 * 1024;
 })
 export class Files {
   private readonly api = inject(DriveApiService);
+  private readonly configService = inject(ConfigService);
+
+  /** Recht je Ordner-Schlüssel, aus den geladenen Listen; der Server prüft trotzdem jede Aktion. */
+  private readonly folderPermissions = new Map<string, SpaceInfo['permission']>();
 
   readonly searchTerm = signal('');
   readonly searchResults = signal<DriveItem[] | null>(null);
   readonly searchError = signal<string | null>(null);
 
-  readonly permissions = { create: true, copy: false, move: true, delete: true, rename: true, upload: true, download: true };
-  readonly upload = { chunkSize: uploadChunkSize, maxFileSize: 10 * 1024 * 1024 * 1024 };
+  readonly permissions = signal(readOnlyPermissions);
+  readonly upload = computed(() => ({
+    chunkSize: uploadChunkSize,
+    maxFileSize: this.configService.config()?.maxUploadBytes ?? defaultMaxUpload,
+  }));
   readonly itemView = {
     mode: 'details' as const,
     details: {
@@ -98,6 +112,12 @@ export class Files {
     this.searchError.set(null);
   }
 
+  onCurrentDirectoryChanged(e: CurrentDirectoryChangedEvent): void {
+    const directory = e.directory;
+    const permission = directory && directory.pathKeys.length > 0 ? this.folderPermissions.get(this.folderId(directory)) : undefined;
+    this.permissions.set(permission === 'Write' || permission === 'Manage' ? writablePermissions : readOnlyPermissions);
+  }
+
   download(item: DriveItem): void {
     downloadFile(this.api.contentUrl(item.id));
   }
@@ -109,9 +129,12 @@ export class Files {
   private async getItems(parent: FileSystemItem): Promise<(DirectoryData | FileData)[]> {
     if (parent.pathKeys.length === 0) {
       const spaces = await this.api.spaces();
+      spaces.forEach((s) => this.folderPermissions.set(s.rootFolderId, s.permission));
       return spaces.map((s) => ({ key: s.rootFolderId, name: s.name, isDirectory: true, folderId: s.rootFolderId, isSpace: true }));
     }
     const listing = await this.api.children(this.folderId(parent));
+    this.folderPermissions.set(listing.folderId, listing.permission);
+    listing.items.filter((item) => item.isDirectory).forEach((item) => this.folderPermissions.set(item.id, listing.permission));
     return listing.items.map((item) =>
       item.isDirectory
         ? { key: item.id, name: item.name, isDirectory: true, folderId: item.id, isSpace: false, dateModified: new Date(item.modifiedAt) }

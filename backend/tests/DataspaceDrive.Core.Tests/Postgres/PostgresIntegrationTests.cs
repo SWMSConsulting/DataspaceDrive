@@ -81,5 +81,16 @@ public sealed class PostgresIntegrationTests : IAsyncLifetime
         await files.PurgeAsync(principal, folder.Id, CancellationToken.None);
         Assert.Empty(await files.GetTrashAsync(principal, CancellationToken.None));
         Assert.Empty(await files.SearchAsync(principal, "protokoll", CancellationToken.None));
+
+        // Team-Bereich: Belegung über GroupBy/Join muss auch Npgsql übersetzen.
+        var admin = principal with { Roles = new HashSet<string> { DrivePrincipal.RoleUser, DrivePrincipal.RoleAdmin } };
+        var teams = new TeamSpaceService(db, clock);
+        var team = await teams.CreateAsync(admin,
+            new TeamSpaceRequest("Projekt", [new AclEntryRequest(PrincipalType.User, user.Id.ToString(), Permission.Write)]), CancellationToken.None);
+        var teamUpload = await uploads.StartAsync(principal, team.RootFolderId, "Plan.txt", 3, CancellationToken.None);
+        await uploads.AppendChunkAsync(principal, teamUpload.UploadId, 0, new MemoryStream("abc"u8.ToArray()), CancellationToken.None);
+        await uploads.CompleteAsync(principal, teamUpload.UploadId, "", CancellationToken.None);
+        var listed = Assert.Single(await teams.ListAsync(admin, CancellationToken.None));
+        Assert.Equal((1, 3L), (listed.FileCount, listed.StoredBytes));
     }
 }

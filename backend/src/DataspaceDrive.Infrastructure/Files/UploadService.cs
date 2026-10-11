@@ -35,6 +35,8 @@ public sealed class UploadService(
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 
+    public long MaxFileSize => scanner.Enabled && scanner.MaxBytes is { } scannable ? Math.Min(scannable, _options.MaxFileSize) : _options.MaxFileSize;
+
     public async Task<UploadTicket> StartAsync(DrivePrincipal principal, Guid folderId, string fileName, long size, CancellationToken ct)
     {
         var name = ItemName.Validate(fileName);

@@ -41,8 +41,9 @@
   class="file-manager"
   rootFolderName="Bereiche"
   [fileSystemProvider]="fileProvider"
-  [permissions]="permissions"
-  [upload]="upload"
+  [permissions]="permissions()"
+  [upload]="upload()"
   [itemView]="itemView"
   [height]="560"
+  (onCurrentDirectoryChanged)="onCurrentDirectoryChanged($event)"
 ></dx-file-manager>

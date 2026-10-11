@@ -48,6 +48,9 @@ public interface IFileService
 
 public interface IUploadService
 {
+    /// <summary>Größte annehmbare Datei; mit Virenscan zusätzlich durch die Grenze des Scanners beschränkt.</summary>
+    long MaxFileSize { get; }
+
     Task<UploadTicket> StartAsync(DrivePrincipal principal, Guid folderId, string fileName, long size, CancellationToken ct);
 
     /// <summary>Nimmt Teilstück <paramref name="index"/> an; wiederholte Teilstücke werden ignoriert.</summary>

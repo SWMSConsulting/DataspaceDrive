@@ -12,7 +12,19 @@ interface NavItem {
   text: string;
   icon: string;
   path: string;
+  adminOnly?: boolean;
 }
+
+const allNavItems: NavItem[] = [
+  { text: 'Dateien', icon: 'folder', path: '/files' },
+  { text: 'Papierkorb', icon: 'trash', path: '/trash' },
+  { text: 'Von mir geteilt', icon: 'share', path: '/shares' },
+  { text: 'Eingang', icon: 'download', path: '/inbox' },
+  { text: 'Partner', icon: 'group', path: '/partners' },
+  { text: 'Aktivität', icon: 'clock', path: '/activity' },
+  { text: 'Verwaltung', icon: 'preferences', path: '/admin', adminOnly: true },
+  { text: 'Einstellungen', icon: 'toolbox', path: '/settings' },
+];
 
 @Component({
   selector: 'app-shell',
@@ -28,16 +40,7 @@ export class Shell {
   readonly drawerOpen = signal(true);
   readonly participant = computed(() => this.configService.config()?.bpn ?? '');
 
-  readonly navItems: NavItem[] = [
-    { text: 'Dateien', icon: 'folder', path: '/files' },
-    { text: 'Papierkorb', icon: 'trash', path: '/trash' },
-    { text: 'Von mir geteilt', icon: 'share', path: '/shares' },
-    { text: 'Eingang', icon: 'download', path: '/inbox' },
-    { text: 'Partner', icon: 'group', path: '/partners' },
-    { text: 'Aktivität', icon: 'clock', path: '/activity' },
-    { text: 'Verwaltung', icon: 'preferences', path: '/admin' },
-    { text: 'Einstellungen', icon: 'toolbox', path: '/settings' },
-  ];
+  readonly navItems = computed(() => allNavItems.filter((item) => !item.adminOnly || this.auth.me()?.isAdmin));
 
   readonly menuButtonOptions = {
     icon: 'menu',

@@ -7,6 +7,8 @@ export interface DriveConfig {
   bpn?: string;
   dspAddress?: string;
   edcProfile?: string;
+  /** Größte annehmbare Datei; mit Virenscan durch dessen Grenze beschränkt. */
+  maxUploadBytes?: number;
 }
 
 @Injectable({ providedIn: 'root' })

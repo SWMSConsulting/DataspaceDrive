@@ -6,15 +6,15 @@ Dateien sicher über den Dataspace an andere Unternehmen freigeben: eine Web-Anw
 - Jede Freigabe wird ein EDC-Angebot, das nur der adressierte Partner sieht.
 - Der Partner übernimmt die Datei nach Annahme in seine eigene DataspaceDrive.
 
-**Stand:** Phase 0 abgeschlossen (Konzept, Spike gegen den windx-Dataspace, Repo-Skelett). Details in [docs/konzept-dataspace-drive-de.md](docs/konzept-dataspace-drive-de.md) und [docs/spike-ergebnisse.md](docs/spike-ergebnisse.md).
+**Stand:** Phase 1 („Drive intern“): OIDC-Anmeldung, persönliche und Team-Bereiche, Chunk-Upload, Versionen, Papierkorb, Suche und Virenscan. Phase 2 (Teilen über den Dataspace) folgt. Details in [docs/konzept-dataspace-drive-de.md](docs/konzept-dataspace-drive-de.md) und [docs/spike-ergebnisse.md](docs/spike-ergebnisse.md).
 
 ## Aufbau
 
 ```
 backend/                     .NET 10, ASP.NET Core ohne XAF
   src/DataspaceDrive.Api             Host: API/BFF, SPA, Content-Endpunkt für die EDC-Dataplane (Port 8090)
-  src/DataspaceDrive.Core            Domäne: Statusmaschinen, Zugriffsprüfung, Zustell-Token
-  src/DataspaceDrive.Infrastructure  Dateiablage (Dateisystem), später EF Core, ClamAV, Outbox
+  src/DataspaceDrive.Core            Domäne: Bereiche, Ordner, Dateien, Rechte, Statusmaschinen, Zustell-Token
+  src/DataspaceDrive.Infrastructure  EF Core/PostgreSQL, Dateiablage (Dateisystem), ClamAV, Hintergrunddienste
   src/Swms.Edc.Client                EDC-Management-Requests und Austauschprofil (im Spike verifiziert)
   tests/                             xUnit
 frontend/dataspace-drive/    Angular 22 + DevExtreme 26.1
@@ -22,6 +22,14 @@ deploy/dataspace-drive/      Helm-Chart mit values-alice/bob/dave.yaml
 spike/                       Spike-Skripte der Phase 0
 docs/                        Konzept und Spike-Ergebnisse
 ```
+
+## Rollen und Bereiche
+
+Die Rollen kommen aus dem Identity Provider (Claim `roles`):
+
+- `drive-user`: Dateien ablegen. Jeder Nutzer hat einen persönlichen Bereich „Meine Dateien“, den nur er selbst sieht.
+- `drive-admin`: legt unter „Verwaltung“ Team-Bereiche an und vergibt Lesen oder Schreiben an Rollen, Gruppen oder einzelne Nutzer. Inhalte sieht ein Administrator nur mit eigenem Eintrag.
+- `drive-external-share` und `drive-inbox`: Teilen mit Partnern und Eingang (Phase 2).
 
 ## Lokal entwickeln
 

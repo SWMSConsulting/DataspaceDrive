@@ -1,6 +1,130 @@
-<app-planned-feature
-  heading="Verwaltung"
-  phase="Phase 1–2"
-  description="Einstellungen für Administratoren dieser Instanz."
-  [items]="items"
-/>
+<div class="page-header">
+  <h1 class="page-title">Verwaltung</h1>
+</div>
+
+<div class="section-header">
+  <h2 class="section-title">Team-Bereiche</h2>
+  <dx-button text="Team-Bereich anlegen" icon="add" type="default" (onClick)="openCreate()"></dx-button>
+  <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+</div>
+<p class="hint">
+  Gemeinsame Ablagen für Teams. Zugriff erhalten Rollen, Gruppen oder einzelne Nutzer. Administratoren sehen hier Namen, Rechte und
+  Belegung, aber keine Inhalte; dafür braucht auch das eigene Konto einen Eintrag.
+</p>
+
+<dx-data-grid [dataSource]="spaces()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" noDataText="Noch keine Team-Bereiche.">
+  <dxi-column dataField="name" caption="Name" [width]="220" sortOrder="asc"></dxi-column>
+  <dxi-column caption="Berechtigungen" [calculateCellValue]="formatAcl"></dxi-column>
+  <dxi-column dataField="fileCount" caption="Dateien" [width]="90" alignment="right"></dxi-column>
+  <dxi-column caption="Belegung" [calculateCellValue]="formatSize" [width]="110" alignment="right"></dxi-column>
+  <dxi-column dataField="createdAt" caption="Angelegt" dataType="date" [width]="110"></dxi-column>
+  <dxi-column caption="" [width]="200" cellTemplate="actions"></dxi-column>
+  <div *dxTemplate="let cell of 'actions'">
+    <dx-button text="Bearbeiten" stylingMode="text" (onClick)="openEdit(cell.data)"></dx-button>
+    <dx-button text="Löschen" stylingMode="text" type="danger" (onClick)="remove(cell.data)"></dx-button>
+  </div>
+</dx-data-grid>
+
+<h2 class="section-title planned-title">Geplant (Phase 2)</h2>
+<ul class="planned-list">
+  @for (item of plannedItems; track item) {
+    <li>{{ item }}</li>
+  }
+</ul>
+
+<dx-popup
+  [visible]="editorVisible()"
+  (onHidden)="editorVisible.set(false)"
+  [title]="editorTitle()"
+  [width]="760"
+  height="auto"
+  [showCloseButton]="true"
+>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="saveButtonOptions"></dxi-popup-toolbar-item>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="cancelButtonOptions"></dxi-popup-toolbar-item>
+  <div *dxTemplate="let data of 'content'">
+    <label class="field-label" for="space-name">Name</label>
+    <dx-text-box
+      id="space-name"
+      placeholder="z. B. Projekt Windpark Nord"
+      [maxLength]="255"
+      [value]="draftName()"
+      (onValueChanged)="draftName.set($event.value ?? '')"
+    ></dx-text-box>
+
+    <h3 class="section-title editor-section">Berechtigungen</h3>
+    <p class="hint">Rollen und Gruppen kommen aus dem Identity Provider. Nutzer erscheinen hier nach ihrer ersten Anmeldung.</p>
+    <div class="acl-add">
+      <dx-select-box
+        class="acl-type"
+        [items]="typeOptions"
+        valueExpr="value"
+        displayExpr="text"
+        [value]="newType()"
+        (onValueChanged)="onTypeChanged($event.value)"
+      ></dx-select-box>
+      @switch (newType()) {
+        @case ('User') {
+          <dx-select-box
+            class="acl-key"
+            placeholder="Nutzer wählen"
+            [items]="users()"
+            valueExpr="id"
+            [displayExpr]="userLabel"
+            [searchEnabled]="true"
+            [value]="newKey()"
+            (onValueChanged)="newKey.set($event.value)"
+          ></dx-select-box>
+        }
+        @case ('Role') {
+          <dx-select-box
+            class="acl-key"
+            placeholder="Rolle wählen oder eingeben"
+            [items]="roleSuggestions"
+            [acceptCustomValue]="true"
+            [searchEnabled]="true"
+            [value]="newKey()"
+            (onValueChanged)="newKey.set($event.value)"
+            (onCustomItemCreating)="onCustomRole($event)"
+          ></dx-select-box>
+        }
+        @default {
+          <dx-text-box
+            class="acl-key"
+            placeholder="Gruppenname aus dem Identity Provider"
+            [value]="newKey() ?? ''"
+            (onValueChanged)="newKey.set($event.value)"
+          ></dx-text-box>
+        }
+      }
+      <dx-select-box
+        class="acl-permission"
+        [items]="permissionOptions"
+        valueExpr="value"
+        displayExpr="text"
+        [value]="newPermission()"
+        (onValueChanged)="newPermission.set($event.value)"
+      ></dx-select-box>
+      <dx-button text="Hinzufügen" icon="add" (onClick)="addEntry()"></dx-button>
+    </div>
+
+    <dx-data-grid [dataSource]="draftAcl()" [showBorders]="true" noDataText="Keine Berechtigungen: Dann sieht niemand den Bereich.">
+      <dxi-column caption="Art" [calculateCellValue]="formatType" [width]="90"></dxi-column>
+      <dxi-column dataField="displayName" caption="Nutzer, Rolle oder Gruppe"></dxi-column>
+      <dxi-column caption="Recht" [width]="160" cellTemplate="permission"></dxi-column>
+      <dxi-column caption="" [width]="60" cellTemplate="remove"></dxi-column>
+      <div *dxTemplate="let cell of 'permission'">
+        <dx-select-box
+          [items]="permissionOptions"
+          valueExpr="value"
+          displayExpr="text"
+          [value]="cell.data.permission"
+          (onValueChanged)="setPermission(cell.data, $event.value)"
+        ></dx-select-box>
+      </div>
+      <div *dxTemplate="let cell of 'remove'">
+        <dx-button icon="trash" stylingMode="text" hint="Entfernen" (onClick)="removeEntry(cell.data)"></dx-button>
+      </div>
+    </dx-data-grid>
+  </div>
+</dx-popup>

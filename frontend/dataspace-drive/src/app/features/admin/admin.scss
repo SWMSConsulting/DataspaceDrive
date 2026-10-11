@@ -1,3 +1,50 @@
-:host {
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 8px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.editor-section {
+  margin-top: 20px;
+}
+
+.field-label {
   display: block;
+  margin-bottom: 4px;
+  color: #616161;
+  font-size: 13px;
+}
+
+.acl-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.acl-type {
+  width: 120px;
+}
+
+.acl-key {
+  flex: 1;
+}
+
+.acl-permission {
+  width: 140px;
+}
+
+.planned-title {
+  margin-top: 32px;
+}
+
+.planned-list {
+  color: #616161;
 }

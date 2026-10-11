@@ -10,7 +10,7 @@
   <dx-list
     *dxTemplate="let dummy of 'panel'"
     class="nav-list"
-    [dataSource]="navItems"
+    [dataSource]="navItems()"
     [width]="220"
     selectionMode="single"
     (onItemClick)="onNavItemClick($event)"

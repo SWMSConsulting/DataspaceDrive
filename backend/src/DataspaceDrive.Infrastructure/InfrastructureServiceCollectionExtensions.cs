@@ -1,3 +1,4 @@
+using DataspaceDrive.Core.Access;
 using DataspaceDrive.Core.Files;
 using DataspaceDrive.Core.Scanning;
 using DataspaceDrive.Core.Shares;
@@ -31,6 +32,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<AccessResolver>();
         services.AddScoped<IFileService, FileService>();
         services.AddScoped<IUploadService, UploadService>();
+        services.AddScoped<ITeamSpaceService, TeamSpaceService>();
+        services.AddHostedService<UploadCleanupWorker>();
         services.AddScoped<IUserProvisioning, UserProvisioning>();
         services.AddSingleton<IDeliveryDirectory, EmptyDeliveryDirectory>();
 

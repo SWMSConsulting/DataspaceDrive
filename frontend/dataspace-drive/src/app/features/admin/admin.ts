@@ -1,18 +1,177 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { DxButtonModule } from 'devextreme-angular/ui/button';
+import { DxDataGridModule } from 'devextreme-angular/ui/data-grid';
+import { DxPopupModule } from 'devextreme-angular/ui/popup';
+import { DxSelectBoxModule } from 'devextreme-angular/ui/select-box';
+import { DxTextBoxModule } from 'devextreme-angular/ui/text-box';
+import { CustomItemCreatingEvent } from 'devextreme/ui/select_box';
+import { confirm } from 'devextreme/ui/dialog';
+import notify from 'devextreme/ui/notify';
 
-import { PlannedFeature } from '../../shared/planned-feature/planned-feature';
+import { AclEntry, AdminApiService, KnownUser, PrincipalType, TeamPermission, TeamSpace } from '../../core/admin-api.service';
+import { errorText } from '../../core/drive-api.service';
+import { formatBytes } from '../../shared/format';
+
+const typeLabels: Record<PrincipalType, string> = { Role: 'Rolle', Group: 'Gruppe', User: 'Nutzer' };
+const permissionLabels: Record<TeamPermission, string> = { Read: 'Lesen', Write: 'Schreiben' };
 
 @Component({
   selector: 'app-admin',
-  imports: [PlannedFeature],
+  imports: [DxDataGridModule, DxButtonModule, DxPopupModule, DxSelectBoxModule, DxTextBoxModule],
   templateUrl: './admin.html',
   styleUrl: './admin.scss',
 })
 export class Admin {
-  readonly items = [
+  private readonly api = inject(AdminApiService);
+
+  readonly spaces = signal<TeamSpace[]>([]);
+  readonly users = signal<KnownUser[]>([]);
+
+  readonly editorVisible = signal(false);
+  readonly editingId = signal<string | null>(null);
+  readonly draftName = signal('');
+  readonly draftAcl = signal<AclEntry[]>([]);
+  readonly saving = signal(false);
+  readonly editorTitle = computed(() => (this.editingId() ? 'Team-Bereich bearbeiten' : 'Team-Bereich anlegen'));
+
+  readonly newType = signal<PrincipalType>('Role');
+  readonly newKey = signal<string | null>(null);
+  readonly newPermission = signal<TeamPermission>('Write');
+
+  readonly typeOptions = (Object.keys(typeLabels) as PrincipalType[]).map((value) => ({ value, text: typeLabels[value] }));
+  readonly permissionOptions = (Object.keys(permissionLabels) as TeamPermission[]).map((value) => ({ value, text: permissionLabels[value] }));
+  /** Rollen dieser Anwendung; weitere Rollen und Gruppen aus dem Identity Provider lassen sich frei eintragen. */
+  readonly roleSuggestions = ['drive-user', 'drive-external-share', 'drive-inbox', 'drive-admin'];
+
+  readonly plannedItems = [
     'Partner und Policy-Profile',
     'EDC-Status, Abgleich (Reconciliation) und ausstehende Operationen',
     'Quarantäne für verdächtige Dateien',
-    'Nutzer und Rollen aus dem Identity Provider',
   ];
+
+  readonly saveButtonOptions = {
+    text: 'Speichern',
+    type: 'default',
+    stylingMode: 'contained',
+    onClick: () => this.save(),
+  };
+
+  readonly cancelButtonOptions = {
+    text: 'Abbrechen',
+    stylingMode: 'outlined',
+    onClick: () => this.editorVisible.set(false),
+  };
+
+  constructor() {
+    void this.reload();
+  }
+
+  async reload(): Promise<void> {
+    try {
+      const [spaces, users] = await Promise.all([this.api.teamSpaces(), this.api.knownUsers()]);
+      this.spaces.set(spaces);
+      this.users.set(users);
+    } catch (error) {
+      notify(errorText(error), 'error', 4000);
+    }
+  }
+
+  openCreate(): void {
+    this.openEditor(null, '', []);
+  }
+
+  openEdit(space: TeamSpace): void {
+    this.openEditor(space.id, space.name, space.acl);
+  }
+
+  onTypeChanged(type: PrincipalType): void {
+    this.newType.set(type);
+    this.newKey.set(null);
+  }
+
+  onCustomRole(e: CustomItemCreatingEvent): void {
+    e.customItem = e.text?.trim();
+  }
+
+  addEntry(): void {
+    const key = (this.newKey() ?? '').trim();
+    const type = this.newType();
+    if (!key) {
+      notify('Bitte einen Nutzer, eine Rolle oder eine Gruppe angeben.', 'warning', 3000);
+      return;
+    }
+    if (this.draftAcl().some((e) => e.principalType === type && e.principalKey === key)) {
+      notify('Dieser Eintrag ist schon vorhanden.', 'warning', 3000);
+      return;
+    }
+    const displayName = type === 'User' ? this.userLabel(this.users().find((u) => u.id === key)) : key;
+    this.draftAcl.update((acl) => [...acl, { principalType: type, principalKey: key, permission: this.newPermission(), displayName }]);
+    this.newKey.set(null);
+  }
+
+  removeEntry(entry: AclEntry): void {
+    this.draftAcl.update((acl) => acl.filter((e) => e !== entry));
+  }
+
+  setPermission(entry: AclEntry, permission: TeamPermission): void {
+    this.draftAcl.update((acl) => acl.map((e) => (e === entry ? { ...e, permission } : e)));
+  }
+
+  async save(): Promise<void> {
+    const name = this.draftName().trim();
+    if (!name) {
+      notify('Bitte einen Namen angeben.', 'warning', 3000);
+      return;
+    }
+    if (this.saving()) {
+      return;
+    }
+    this.saving.set(true);
+    try {
+      const id = this.editingId();
+      const saved = id ? await this.api.updateTeamSpace(id, name, this.draftAcl()) : await this.api.createTeamSpace(name, this.draftAcl());
+      notify(`„${saved.name}“ wurde gespeichert.`, 'success', 3000);
+      this.editorVisible.set(false);
+      await this.reload();
+    } catch (error) {
+      notify(errorText(error), 'error', 5000);
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async remove(space: TeamSpace): Promise<void> {
+    const ok = await confirm(`Team-Bereich „${space.name}“ löschen? Das geht nur, wenn er leer ist (auch im Papierkorb).`, 'Team-Bereich löschen');
+    if (!ok) {
+      return;
+    }
+    try {
+      await this.api.deleteTeamSpace(space.id);
+      notify(`„${space.name}“ wurde gelöscht.`, 'success', 3000);
+      await this.reload();
+    } catch (error) {
+      notify(errorText(error), 'error', 5000);
+    }
+  }
+
+  userLabel = (user: KnownUser | null | undefined): string =>
+    user ? (user.email ? `${user.displayName} (${user.email})` : user.displayName) : '';
+
+  formatAcl = (row: TeamSpace): string =>
+    row.acl.length === 0
+      ? 'niemand'
+      : row.acl.map((e) => `${typeLabels[e.principalType]} ${e.displayName}: ${permissionLabels[e.permission]}`).join(' · ');
+
+  formatSize = (row: TeamSpace): string => formatBytes(row.storedBytes);
+  formatType = (row: AclEntry): string => typeLabels[row.principalType];
+
+  private openEditor(id: string | null, name: string, acl: AclEntry[]): void {
+    this.editingId.set(id);
+    this.draftName.set(name);
+    this.draftAcl.set(acl.map((e) => ({ ...e })));
+    this.newType.set('Role');
+    this.newKey.set(null);
+    this.newPermission.set('Write');
+    this.editorVisible.set(true);
+  }
 }
