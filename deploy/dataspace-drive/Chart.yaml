@@ -1,0 +1,6 @@
+apiVersion: v2
+name: dataspace-drive
+description: DataspaceDrive - Dateien sicher über den Dataspace teilen (API/BFF + Angular-SPA)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

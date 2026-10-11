@@ -1,0 +1,17 @@
+{{- if not .Values.storage.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "drive.claimName" . }}
+  labels:
+    {{- include "drive.labels" . | nindent 4 }}
+  annotations:
+    # Dateien überleben ein "helm uninstall"; das PVC wird nur bewusst gelöscht.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: {{ .Values.storage.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.size }}
+{{- end }}

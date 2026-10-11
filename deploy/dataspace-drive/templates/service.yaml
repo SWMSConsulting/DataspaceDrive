@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "drive.fullname" . }}
+  labels:
+    {{- include "drive.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+  selector:
+    {{- include "drive.selectorLabels" . | nindent 4 }}
+---
+# Content-Endpunkt für die EDC-Dataplane; auf dieses Ziel zeigen die baseUrls der Zustell-Assets.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "drive.fullname" . }}-edc
+  labels:
+    {{- include "drive.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: content
+      port: {{ .Values.ports.content }}
+      targetPort: content
+  selector:
+    {{- include "drive.selectorLabels" . | nindent 4 }}

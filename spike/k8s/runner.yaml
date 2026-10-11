@@ -1,0 +1,51 @@
+# Spike-Runner im Namespace des Empfaengers. Platzhalter __NAME__ ersetzt run-spike.sh,
+# Zugangsdaten kommen aus dem Secret drive-spike-runner.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: drive-spike-runner
+  labels:
+    app: drive-spike-runner
+    app.kubernetes.io/part-of: dataspacedrive-spike
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+  containers:
+    - name: runner
+      image: python:3.12-alpine
+      command: ["python", "-u", "/app/spike_runner.py"]
+      envFrom:
+        - secretRef:
+            name: drive-spike-runner
+      env:
+        - name: RUN_ID
+          value: "__RUN_ID__"
+        - name: LARGE_MB
+          value: "__LARGE_MB__"
+        - name: PAR_MB
+          value: "__PAR_MB__"
+        - name: PAR_COUNT
+          value: "__PAR_COUNT__"
+        - name: CLEANUP
+          value: "__CLEANUP__"
+      resources:
+        requests:
+          cpu: 200m
+          memory: 128Mi
+        limits:
+          cpu: "2"
+          memory: 512Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      volumeMounts:
+        - name: app
+          mountPath: /app
+  volumes:
+    - name: app
+      configMap:
+        name: drive-spike-runner

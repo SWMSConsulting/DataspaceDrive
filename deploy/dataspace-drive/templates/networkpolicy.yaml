@@ -1,0 +1,29 @@
+{{- if .Values.networkPolicy.enabled }}
+# Port "content" nur für die Dataplane des eigenen Connectors, Port "http" nur für den Ingress-Controller.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "drive.fullname" . }}
+  labels:
+    {{- include "drive.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "drive.selectorLabels" . | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dataplanePodLabels | nindent 14 }}
+      ports:
+        - port: {{ .Values.ports.content }}
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.ingressControllerNamespace }}
+      ports:
+        - port: {{ .Values.ports.app }}
+          protocol: TCP
+{{- end }}

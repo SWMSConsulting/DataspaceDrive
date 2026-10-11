@@ -1,0 +1,83 @@
+name: deploy
+
+# Eine Instanz je Teilnehmer im Namespace windx-<teilnehmer>, neben dessen EDC-Connector.
+# Kubeconfig je Teilnehmer aus KUBECONFIG_<TEILNEHMER>, sonst aus der gemeinsamen KUBECONFIG.
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image-Tag in GHCR (z. B. latest oder sha-abc1234)'
+        required: true
+        default: 'latest'
+      target:
+        description: 'Welche Instanz(en) deployen'
+        type: choice
+        options: [all, alice, bob, dave]
+        default: all
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - participant: alice
+            prefix: ALICE
+          - participant: bob
+            prefix: BOB
+          - participant: dave
+            prefix: DAVE
+    steps:
+      - name: Skip non-selected
+        id: guard
+        run: |
+          if [ "${{ inputs.target }}" != "all" ] && [ "${{ inputs.target }}" != "${{ matrix.participant }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.skip != 'true'
+
+      - uses: azure/setup-helm@v4
+        if: steps.guard.outputs.skip != 'true'
+
+      # Ohne diese Prüfung würde helm fehlende Werte leer setzen und bestehende Secrets überschreiben.
+      - name: Check required secrets
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          EDC_API_KEY: ${{ secrets[format('{0}_EDC_API_KEY', matrix.prefix)] }}
+          DELIVERY_TOKEN_KEY: ${{ secrets[format('{0}_DELIVERY_TOKEN_KEY', matrix.prefix)] }}
+          KUBECONFIG_B64: ${{ secrets[format('KUBECONFIG_{0}', matrix.prefix)] || secrets.KUBECONFIG }}
+        run: |
+          missing=""
+          [ -n "$KUBECONFIG_B64" ] || missing="$missing KUBECONFIG_${{ matrix.prefix }} (oder KUBECONFIG)"
+          [ -n "$EDC_API_KEY" ] || missing="$missing ${{ matrix.prefix }}_EDC_API_KEY"
+          [ -n "$DELIVERY_TOKEN_KEY" ] || missing="$missing ${{ matrix.prefix }}_DELIVERY_TOKEN_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Fehlende GitHub-Secrets:$missing"
+            exit 1
+          fi
+
+      - name: Write kubeconfig
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          KUBECONFIG_B64: ${{ secrets[format('KUBECONFIG_{0}', matrix.prefix)] || secrets.KUBECONFIG }}
+        run: |
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBECONFIG_B64" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Helm upgrade ${{ matrix.participant }}
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          EDC_API_KEY: ${{ secrets[format('{0}_EDC_API_KEY', matrix.prefix)] }}
+          DELIVERY_TOKEN_KEY: ${{ secrets[format('{0}_DELIVERY_TOKEN_KEY', matrix.prefix)] }}
+        run: |
+          helm upgrade --install "dataspace-drive-${{ matrix.participant }}" deploy/dataspace-drive \
+            --namespace "windx-${{ matrix.participant }}" \
+            -f "deploy/dataspace-drive/values-${{ matrix.participant }}.yaml" \
+            --set image.tag="${{ inputs.image_tag }}" \
+            --set secrets.edcApiKey="$EDC_API_KEY" \
+            --set secrets.deliveryTokenKey="$DELIVERY_TOKEN_KEY" \
+            --wait --timeout 5m

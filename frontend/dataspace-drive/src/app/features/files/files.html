@@ -1,0 +1,13 @@
+<app-planned-feature
+  heading="Dateien"
+  phase="Phase 1"
+  description="Ablage für Ihre Dateien. Von hier aus geben Sie Dateien später an Partnerunternehmen frei."
+  [items]="items"
+/>
+
+<dx-file-manager
+  class="file-manager"
+  [fileSystemProvider]="fileProvider"
+  [permissions]="permissions"
+  [height]="480"
+></dx-file-manager>

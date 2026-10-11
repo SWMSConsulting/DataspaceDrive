@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DataspaceDrive.Api/DataspaceDrive.Api.csproj" />
+    <Project Path="src/DataspaceDrive.Core/DataspaceDrive.Core.csproj" />
+    <Project Path="src/DataspaceDrive.Infrastructure/DataspaceDrive.Infrastructure.csproj" />
+    <Project Path="src/Swms.Edc.Client/Swms.Edc.Client.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DataspaceDrive.Api.Tests/DataspaceDrive.Api.Tests.csproj" />
+    <Project Path="tests/DataspaceDrive.Core.Tests/DataspaceDrive.Core.Tests.csproj" />
+    <Project Path="tests/Swms.Edc.Client.Tests/Swms.Edc.Client.Tests.csproj" />
+  </Folder>
+</Solution>

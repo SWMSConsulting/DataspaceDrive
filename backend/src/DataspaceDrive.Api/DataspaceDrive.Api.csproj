@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DataspaceDrive.Core\DataspaceDrive.Core.csproj" />
+    <ProjectReference Include="..\DataspaceDrive.Infrastructure\DataspaceDrive.Infrastructure.csproj" />
+    <ProjectReference Include="..\Swms.Edc.Client\Swms.Edc.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DataspaceDrive.Api.Tests" />
+  </ItemGroup>
+
+</Project>

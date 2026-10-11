@@ -1,0 +1,15 @@
+# Instanz für dave (windx-Dataspace). Geheimnisse NICHT hier ablegen, sondern beim Deploy per --set
+# oder existingSecret setzen.
+fullnameOverride: dataspace-drive-dave
+
+participant:
+  id: "did:web:dave-windx.cluster.swms-cloud.com"
+  bpn: "BPNL00000000WD04"
+  dspAddress: "https://dave-edc-windx.cluster.swms-cloud.com/api/v1/dsp"
+
+edc:
+  managementUrl: "http://dave-edc-controlplane:8081/management"
+
+ingress:
+  host: drive-dave-windx.cluster.swms-cloud.com
+  tlsSecretName: dataspace-drive-dave-tls

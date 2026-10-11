@@ -1,0 +1,89 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: backend/global.json
+
+      - name: Backend-Tests
+        run: dotnet test backend/DataspaceDrive.slnx --nologo
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/dataspace-drive/package-lock.json
+
+      - name: Frontend-Build
+        working-directory: frontend/dataspace-drive
+        run: |
+          npm ci
+          npx ng build --configuration production
+
+      - uses: azure/setup-helm@v4
+
+      - name: Helm-Chart prüfen
+        run: |
+          helm lint deploy/dataspace-drive --set secrets.edcApiKey=lint --set secrets.deliveryTokenKey=bGludA==
+          for p in alice bob dave; do
+            helm template "drive-$p" deploy/dataspace-drive -f "deploy/dataspace-drive/values-$p.yaml" \
+              --set secrets.edcApiKey=lint --set secrets.deliveryTokenKey=bGludA== > /dev/null
+          done
+
+  image:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            DEVEXTREME_LICENSE=${{ secrets.DEVEXTREME_LICENSE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,5 @@
+DataspaceDrive {{ include "drive.fullname" . }} ist installiert.
+
+UI/API:            https://{{ .Values.ingress.host }}
+Content-Endpunkt:  http://{{ include "drive.fullname" . }}-edc.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.ports.content }}
+                   (nur für die EDC-Dataplane; NetworkPolicy {{ if .Values.networkPolicy.enabled }}aktiv{{ else }}AUS{{ end }})

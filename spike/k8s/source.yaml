@@ -1,0 +1,113 @@
+# Spike-Testquelle im Namespace des Anbieters. Platzhalter __NAME__ ersetzt run-spike.sh.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drive-spike-source
+  labels:
+    app: drive-spike-source
+    app.kubernetes.io/part-of: dataspacedrive-spike
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drive-spike-source
+  template:
+    metadata:
+      labels:
+        app: drive-spike-source
+        app.kubernetes.io/part-of: dataspacedrive-spike
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: source
+          image: python:3.12-alpine
+          command: ["python", "-u", "/app/spike_source.py"]
+          env:
+            - name: LARGE_MB
+              value: "__LARGE_MB__"
+            - name: PAR_MB
+              value: "__PAR_MB__"
+            - name: DELIVERY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: drive-spike-source
+                  key: DELIVERY_KEY
+          ports:
+            - name: content
+              containerPort: 8090
+            - name: admin
+              containerPort: 8091
+          # exec statt httpGet: Loopback ist von der NetworkPolicy nicht betroffen.
+          readinessProbe:
+            exec:
+              command: ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/healthz', timeout=2)"]
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: app
+              mountPath: /app
+      volumes:
+        - name: app
+          configMap:
+            name: drive-spike-source
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: drive-spike-source
+  labels:
+    app.kubernetes.io/part-of: dataspacedrive-spike
+spec:
+  selector:
+    app: drive-spike-source
+  ports:
+    - name: content
+      port: 8090
+      targetPort: content
+    - name: admin
+      port: 8091
+      targetPort: admin
+---
+# Content-Port nur fuer die Dataplane-Pods des Anbieters, Admin-Port nur fuer den Spike-Runner.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: drive-spike-source
+  labels:
+    app.kubernetes.io/part-of: dataspacedrive-spike
+spec:
+  podSelector:
+    matchLabels:
+      app: drive-spike-source
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: tractusx-connector-dataplane
+      ports:
+        - port: 8090
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: __CONSUMER_NS__
+          podSelector:
+            matchLabels:
+              app: drive-spike-runner
+      ports:
+        - port: 8091
+          protocol: TCP

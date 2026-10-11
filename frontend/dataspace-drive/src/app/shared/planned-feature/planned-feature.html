@@ -1,0 +1,12 @@
+<div class="page-header">
+  <h1 class="page-title">{{ heading() }}</h1>
+  <span class="phase-badge">{{ phase() }}</span>
+</div>
+<p class="hint">{{ description() }}</p>
+@if (items().length) {
+  <ul class="planned-list">
+    @for (item of items(); track item) {
+      <li>{{ item }}</li>
+    }
+  </ul>
+}

@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/bin
+**/obj
+**/.angular
+**/.git
+**/wwwroot
+**/.data
+spike/
+docs/
+frontend/dataspace-drive/src/license.ts

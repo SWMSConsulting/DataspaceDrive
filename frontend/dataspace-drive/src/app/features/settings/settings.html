@@ -1,0 +1,21 @@
+<div class="page-header">
+  <h1 class="page-title">Einstellungen</h1>
+</div>
+<p class="hint">Koordinaten dieser Instanz im Dataspace. Sie werden beim Deployment festgelegt.</p>
+
+@if (unavailable()) {
+  <p class="error">Die Konfiguration konnte nicht geladen werden.</p>
+} @else if (config(); as c) {
+  <dl class="config">
+    <dt>Teilnehmer (DID)</dt>
+    <dd>{{ c.participantId || '–' }}</dd>
+    <dt>BPN</dt>
+    <dd>{{ c.bpn || '–' }}</dd>
+    <dt>DSP-Adresse</dt>
+    <dd>{{ c.dspAddress || '–' }}</dd>
+    <dt>EDC-Versionsprofil</dt>
+    <dd>{{ c.edcProfile || '–' }}</dd>
+  </dl>
+} @else {
+  <p class="hint">Wird geladen …</p>
+}

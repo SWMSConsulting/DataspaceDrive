@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "drive.fullname" . }}
+  labels:
+    {{- include "drive.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  # RWO-PVC: der alte Pod muss weg sein, bevor der neue das Volume einhängt.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "drive.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "drive.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: dataspace-drive
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ports.app }}
+            - name: content
+              containerPort: {{ .Values.ports.content }}
+          env:
+            - name: Drive__Ports__App
+              value: {{ .Values.ports.app | quote }}
+            - name: Drive__Ports__Content
+              value: {{ .Values.ports.content | quote }}
+            - name: Drive__Participant__Id
+              value: {{ .Values.participant.id | quote }}
+            - name: Drive__Participant__Bpn
+              value: {{ .Values.participant.bpn | quote }}
+            - name: Drive__Participant__DspAddress
+              value: {{ .Values.participant.dspAddress | quote }}
+            - name: Drive__Edc__ManagementUrl
+              value: {{ .Values.edc.managementUrl | quote }}
+            - name: Drive__Edc__VersionProfile
+              value: {{ .Values.edc.versionProfile | quote }}
+            - name: Drive__Edc__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "drive.secretName" . }}
+                  key: edc-api-key
+            - name: Drive__DeliveryTokens__Keys__1
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "drive.secretName" . }}
+                  key: delivery-token-key-1
+            - name: Drive__DeliveryTokens__CurrentVersion
+              value: "1"
+            - name: Storage__FileSystem__RootPath
+              value: /data/blobs
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "drive.claimName" . }}
+        - name: tmp
+          emptyDir: {}

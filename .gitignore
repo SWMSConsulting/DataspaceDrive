@@ -1,0 +1,28 @@
+# .NET
+bin/
+obj/
+*.user
+.data/
+
+# Node / Angular
+node_modules/
+frontend/**/dist/
+.angular/
+npm-debug.log*
+
+# Secrets / Lizenz (nie committen)
+DevExpress_License.txt
+appsettings.*.Local.json
+*.local.env
+*.local.md
+
+# Spike-Rohdaten (enthalten Lauf-Protokolle aus dem Cluster)
+spike/results/
+
+# OS/IDE
+.DS_Store
+.vs/
+.idea/
+
+# SPA-Build, wird beim Image-Build in das Backend kopiert
+backend/src/DataspaceDrive.Api/wwwroot/

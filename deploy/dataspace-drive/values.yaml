@@ -1,0 +1,75 @@
+# Eine Instanz je Unternehmen, im Namespace neben dessen EDC-Connector.
+replicaCount: 1   # Dateisystem-Ablage auf RWO-PVC: genau eine Replik (Strategy Recreate)
+
+image:
+  repository: ghcr.io/swmsconsulting/dataspacedrive
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Koordinaten dieses Unternehmens im Dataspace.
+participant:
+  id: ""            # DID, z. B. did:web:alice-windx.cluster.swms-cloud.com
+  bpn: ""           # BPNL...
+  dspAddress: ""    # https://<connector>/api/v1/dsp
+
+edc:
+  managementUrl: "" # clusterintern, z. B. http://alice-edc-controlplane:8081/management
+  versionProfile: tractusx-0.12
+
+ports:
+  app: 8080
+  content: 8090
+
+storage:
+  # Verschlüsselte StorageClass (LUKS) für die Dateiablage.
+  storageClass: csi-cinder-high-speed-gen2-luks
+  size: 50Gi
+  existingClaim: ""
+
+# Geheimnisse: entweder hier (nur per --set beim Deploy) oder über existingSecret mit den Schlüsseln
+# edc-api-key und delivery-token-key-1 (Base64, mindestens 32 Bytes).
+secrets:
+  create: true
+  edcApiKey: ""
+  deliveryTokenKey: ""
+existingSecret: ""
+
+service:
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  host: drive.example.com
+  clusterIssuer: letsencrypt-prod
+  tlsSecretName: dataspace-drive-tls
+  # Nur intern erreichbar machen, z. B. "203.0.113.0/24". Leer = keine Einschränkung am Ingress.
+  whitelistSourceRange: ""
+  # Uploads laufen in Teilstücken; die Grenze muss über der Chunk-Größe liegen.
+  proxyBodySize: 16m
+  extraAnnotations: {}
+
+networkPolicy:
+  enabled: true
+  # Pods, die den Content-Port erreichen dürfen: die Dataplane des eigenen Connectors.
+  dataplanePodLabels:
+    app.kubernetes.io/name: tractusx-connector-dataplane
+  ingressControllerNamespace: ingress-nginx
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]

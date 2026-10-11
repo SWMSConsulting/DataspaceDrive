@@ -1,0 +1,25 @@
+<dx-toolbar class="header-toolbar">
+  <dxi-item location="before" widget="dxButton" [options]="menuButtonOptions"></dxi-item>
+  <dxi-item location="before" cssClass="app-title" text="DataspaceDrive"></dxi-item>
+  <dxi-item location="after" locateInMenu="never" cssClass="participant" [text]="participant()"></dxi-item>
+</dx-toolbar>
+
+<dx-drawer class="app-drawer" openedStateMode="shrink" position="left" revealMode="slide" [opened]="drawerOpen()">
+  <dx-list
+    *dxTemplate="let dummy of 'panel'"
+    class="nav-list"
+    [dataSource]="navItems"
+    [width]="220"
+    selectionMode="single"
+    (onItemClick)="onNavItemClick($event)"
+  >
+    <div *dxTemplate="let item of 'item'" class="nav-item">
+      <i class="dx-icon dx-icon-{{ item.icon }}"></i>
+      <span>{{ item.text }}</span>
+    </div>
+  </dx-list>
+
+  <div class="content">
+    <router-outlet />
+  </div>
+</dx-drawer>

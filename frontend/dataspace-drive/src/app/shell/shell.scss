@@ -1,0 +1,46 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header-toolbar {
+  flex: 0 0 auto;
+  padding: 0 8px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.app-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.participant {
+  color: #757575;
+}
+
+.app-drawer {
+  flex: 1 1 auto;
+  height: 100%;
+}
+
+.nav-list {
+  height: 100%;
+  background: #fafafa;
+  border-right: 1px solid #e0e0e0;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.content {
+  height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+  overflow: auto;
+}
