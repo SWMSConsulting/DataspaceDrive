@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- 1) Angular-SPA bauen ------------------------------------------------------------------------
-FROM node:22 AS frontend
+FROM node:24 AS frontend
 WORKDIR /src
 COPY frontend/dataspace-drive/package*.json ./
 RUN npm ci
