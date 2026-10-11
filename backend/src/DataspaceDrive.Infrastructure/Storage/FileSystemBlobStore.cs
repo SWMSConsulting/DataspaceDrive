@@ -7,8 +7,8 @@ namespace DataspaceDrive.Infrastructure.Storage;
 
 public sealed class FileSystemBlobStoreOptions
 {
-    /// <summary>Wurzelverzeichnis, im Cluster ein verschlüsseltes PVC (StorageClass mit LUKS).</summary>
-    public string RootPath { get; set; } = "/data/blobs";
+    /// <summary>Datenwurzel, im Cluster ein verschlüsseltes PVC; darunter liegen <c>blobs/</c> und <c>uploads/</c>.</summary>
+    public string RootPath { get; set; } = "/data";
 }
 
 /// <summary>
@@ -27,6 +27,8 @@ public sealed class FileSystemBlobStore : IBlobStore
         Directory.CreateDirectory(_root);
     }
 
+    internal string Root => _root;
+
     public async Task<BlobInfo> WriteAsync(string key, Stream content, CancellationToken ct = default)
     {
         var path = Resolve(key);
@@ -34,35 +36,43 @@ public sealed class FileSystemBlobStore : IBlobStore
             throw new IOException($"Blob '{key}' existiert bereits; Blobs sind unveränderlich.");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temp = $"{path}.{Guid.NewGuid():N}.tmp";
-        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        long length = 0;
-        var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
         try
         {
+            BlobInfo info;
             await using (var target = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None, BufferSize,
                              FileOptions.Asynchronous))
             {
-                int read;
-                while ((read = await content.ReadAsync(buffer.AsMemory(0, BufferSize), ct)) > 0)
-                {
-                    sha.AppendData(buffer, 0, read);
-                    await target.WriteAsync(buffer.AsMemory(0, read), ct);
-                    length += read;
-                }
+                info = await CopyAndHashAsync(key, content, target, ct);
                 await target.FlushAsync(ct);
             }
             File.Move(temp, path, overwrite: false);
+            return info;
         }
         catch
         {
             TryDelete(temp);
             throw;
         }
-        finally
+    }
+
+    /// <summary>
+    /// Übernimmt eine fertige Datei aus der Upload-Ablage desselben Dateisystems: ein Lesedurchgang für die
+    /// Prüfsumme, danach Umbenennen statt Kopieren.
+    /// </summary>
+    internal async Task<BlobInfo> ImportFileAsync(string key, string sourcePath, CancellationToken ct)
+    {
+        var path = Resolve(key);
+        if (File.Exists(path))
+            throw new IOException($"Blob '{key}' existiert bereits; Blobs sind unveränderlich.");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        BlobInfo info;
+        await using (var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize,
+                         FileOptions.Asynchronous | FileOptions.SequentialScan))
         {
-            ArrayPool<byte>.Shared.Return(buffer);
+            info = await CopyAndHashAsync(key, source, Stream.Null, ct);
         }
-        return new BlobInfo(key, length, Convert.ToHexStringLower(sha.GetHashAndReset()));
+        File.Move(sourcePath, path, overwrite: false);
+        return info;
     }
 
     public Task<Stream> OpenReadAsync(string key, CancellationToken ct = default) =>
@@ -75,6 +85,28 @@ public sealed class FileSystemBlobStore : IBlobStore
     {
         File.Delete(Resolve(key));
         return Task.CompletedTask;
+    }
+
+    private static async Task<BlobInfo> CopyAndHashAsync(string key, Stream source, Stream target, CancellationToken ct)
+    {
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        long length = 0;
+        var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
+        try
+        {
+            int read;
+            while ((read = await source.ReadAsync(buffer.AsMemory(0, BufferSize), ct)) > 0)
+            {
+                sha.AppendData(buffer, 0, read);
+                await target.WriteAsync(buffer.AsMemory(0, read), ct);
+                length += read;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+        return new BlobInfo(key, length, Convert.ToHexStringLower(sha.GetHashAndReset()));
     }
 
     private string Resolve(string key)

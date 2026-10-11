@@ -25,13 +25,16 @@ docs/                        Konzept und Spike-Ergebnisse
 
 ## Lokal entwickeln
 
-Backend (App-Port 5280, Content-Port 5290; ohne Schlüsselkonfiguration erzeugt die Entwicklungsumgebung einen flüchtigen Token-Schlüssel):
+Backend (App-Port 5280, Content-Port 5290). Die Entwicklungsumgebung meldet einen festen Testnutzer an (`Auth:Mode=Development`), läuft ohne Virenscan und erzeugt einen flüchtigen Token-Schlüssel. Sie braucht ein lokales PostgreSQL; die Migration läuft beim Start:
 
 ```bash
+docker run -d --name drive-postgres -p 5432:5432 -e POSTGRES_USER=drive -e POSTGRES_PASSWORD=drive -e POSTGRES_DB=drive postgres:16-alpine
 cd backend
-dotnet test DataspaceDrive.slnx
+dotnet test DataspaceDrive.slnx          # API-Tests mit SQLite im Speicher; der PostgreSQL-Test braucht Docker
 dotnet run --project src/DataspaceDrive.Api
 ```
+
+Neue Migration: `dotnet tool restore && dotnet ef migrations add <Name> --project src/DataspaceDrive.Infrastructure --startup-project src/DataspaceDrive.Infrastructure --output-dir Persistence/Migrations`.
 
 Frontend (leitet `/api` und `/healthz` an das Backend auf Port 5280 weiter):
 
