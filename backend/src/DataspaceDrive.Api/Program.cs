@@ -52,21 +52,11 @@ if (!app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(app.Configurat
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", true))
 {
-    // Die Postgres im selben Release startet unter Umständen später als die Anwendung; kurz warten statt abzustürzen.
-    for (var attempt = 1; ; attempt++)
-    {
-        try
-        {
-            using var scope = app.Services.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<DriveDbContext>().Database.MigrateAsync();
-            break;
-        }
-        catch (Exception ex) when (attempt < 30 && ex is Npgsql.NpgsqlException or System.Net.Sockets.SocketException or TimeoutException)
-        {
-            app.Logger.LogWarning("Datenbank noch nicht erreichbar (Versuch {Attempt}/30): {Message}", attempt, ex.Message);
-            await Task.Delay(TimeSpan.FromSeconds(2));
-        }
-    }
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<DriveDbContext>();
+    if (db.Database.IsNpgsql())
+        await WaitForDatabaseAsync(db.Database.GetConnectionString()!, app.Logger);
+    await db.Database.MigrateAsync();
 }
 
 app.UseForwardedHeaders();
@@ -94,5 +84,25 @@ app.MapContentEndpoints();
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+// Die Postgres im selben Release startet unter Umständen später als die Anwendung; kurz warten statt abzustürzen.
+// Direkt über Npgsql, damit EF Core nicht jeden Fehlversuch als Fehler protokolliert.
+static async Task WaitForDatabaseAsync(string connectionString, ILogger logger)
+{
+    for (var attempt = 1; ; attempt++)
+    {
+        try
+        {
+            await using var connection = new Npgsql.NpgsqlConnection(connectionString);
+            await connection.OpenAsync();
+            return;
+        }
+        catch (Exception ex) when (attempt < 30 && ex is Npgsql.NpgsqlException or System.Net.Sockets.SocketException or TimeoutException)
+        {
+            logger.LogWarning("Datenbank noch nicht erreichbar (Versuch {Attempt}/30): {Message}", attempt, ex.Message);
+            await Task.Delay(TimeSpan.FromSeconds(2));
+        }
+    }
+}
 
 public partial class Program;

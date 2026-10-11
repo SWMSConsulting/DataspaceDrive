@@ -6,6 +6,7 @@ using DataspaceDrive.Core.Shares;
 using DataspaceDrive.Core.Storage;
 using DataspaceDrive.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -20,6 +21,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace DataspaceDrive.Api.Tests;
 
@@ -28,10 +30,14 @@ namespace DataspaceDrive.Api.Tests;
 /// <c>X-Test-Roles</c>, echter Antiforgery-Schutz über HTTPS. Der TestServer kennt keine echten Ports; der
 /// Header <c>X-Test-Local-Port</c> setzt <c>Connection.LocalPort</c> für die Port-Trennung.
 /// </summary>
-public sealed class DriveApiFactory : WebApplicationFactory<Program>
+public class DriveApiFactory : WebApplicationFactory<Program>
 {
+    /// <summary>False: die echte Cookie-/OIDC-Konfiguration bleibt aktiv (für Tests des Anmeldeablaufs).</summary>
+    protected virtual bool UseTestAuthentication => true;
+
     public const int AppPort = 8080;
     public const int ContentPort = 8090;
+    public const string IdpAuthorizationEndpoint = "https://idp.invalid/realms/test/auth";
     public static readonly byte[] TokenKey = Enumerable.Range(0, 32).Select(i => (byte)i).ToArray();
 
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
@@ -70,6 +76,14 @@ public sealed class DriveApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IVirusScanner>();
             services.AddSingleton<IVirusScanner>(Scanner);
 
+            services.AddSingleton<IStartupFilter, TestPortStartupFilter>();
+            if (!UseTestAuthentication)
+            {
+                // Feste IdP-Metadaten statt Discovery gegen idp.invalid; muss vor dem PostConfigure des OIDC-Handlers greifen.
+                services.Configure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, o => o.Configuration =
+                    new OpenIdConnectConfiguration { AuthorizationEndpoint = IdpAuthorizationEndpoint, TokenEndpoint = "https://idp.invalid/token" });
+                return;
+            }
             services.AddAuthentication(TestAuthHandler.SchemeName)
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
             services.PostConfigure<AuthenticationOptions>(o =>
@@ -78,7 +92,6 @@ public sealed class DriveApiFactory : WebApplicationFactory<Program>
                 o.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
                 o.DefaultChallengeScheme = TestAuthHandler.SchemeName;
             });
-            services.AddSingleton<IStartupFilter, TestPortStartupFilter>();
         });
     }
 
@@ -128,6 +141,12 @@ public sealed class DriveApiFactory : WebApplicationFactory<Program>
             next(app);
         };
     }
+}
+
+/// <summary>Testhost mit der echten Cookie-/OIDC-Anmeldung.</summary>
+public sealed class RealAuthApiFactory : DriveApiFactory
+{
+    protected override bool UseTestAuthentication => false;
 }
 
 public sealed class TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)

@@ -94,6 +94,8 @@ ingress:
   whitelistSourceRange: ""
   # Uploads laufen in Teilstücken; die Grenze muss über der Chunk-Größe liegen.
   proxyBodySize: 16m
+  # Das Anmelde-Cookie kommt als großer Set-Cookie-Header zurück; der nginx-Standard (4k) führt zu 502.
+  proxyBufferSize: 16k
   # Der Abschluss eines großen Uploads berechnet die Prüfsumme über die ganze Datei.
   proxyTimeoutSeconds: 600
   extraAnnotations: {}

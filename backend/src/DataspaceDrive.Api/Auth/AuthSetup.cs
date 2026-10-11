@@ -51,6 +51,13 @@ public static class AuthSetup
                 o.Cookie.SameSite = SameSiteMode.Lax;
                 o.ExpireTimeSpan = TimeSpan.FromHours(8);
                 o.SlidingExpiration = true;
+                // Ohne Sitzung bekommen API-Aufrufe 401; die SPA leitet dann selbst über /api/auth/login zum IdP.
+                // Eine OIDC-Challenge würde bei jedem 401 Correlation- und Nonce-Cookies hinterlassen.
+                o.Events.OnRedirectToLogin = ctx =>
+                {
+                    ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
+                };
                 o.Events.OnRedirectToAccessDenied = ctx =>
                 {
                     ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
@@ -70,8 +77,8 @@ public static class AuthSetup
                 o.DefaultChallengeScheme = DevelopmentScheme;
                 return;
             }
+            // Challenges laufen über das Cookie-Schema (401); zum IdP leitet nur /api/auth/login.
             o.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-            o.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
         });
 
         services.AddOptions<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme).Configure<IOptions<OidcSettings>>((o, settings) =>
@@ -83,7 +90,7 @@ public static class AuthSetup
             o.RequireHttpsMetadata = oidc.RequireHttpsMetadata;
             o.ResponseType = OpenIdConnectResponseType.Code;
             o.UsePkce = true;
-            o.SaveTokens = true; // id_token für den Logout beim IdP
+            o.SaveTokens = true; // id_token für den Logout beim IdP, siehe OnTicketReceived
             o.GetClaimsFromUserInfoEndpoint = true;
             o.MapInboundClaims = false;
             o.Scope.Clear();
@@ -94,14 +101,14 @@ public static class AuthSetup
             o.TokenValidationParameters.RoleClaimType = oidc.RoleClaim;
             o.ClaimActions.MapJsonKey(oidc.RoleClaim, oidc.RoleClaim);
             o.ClaimActions.MapJsonKey(oidc.GroupClaim, oidc.GroupClaim);
-            o.Events.OnRedirectToIdentityProvider = ctx =>
+            o.Events.OnTicketReceived = ctx =>
             {
-                // API-Aufrufe ohne Sitzung bekommen 401; die SPA leitet dann selbst zur Anmeldung.
-                if (ctx.Request.Path.StartsWithSegments("/api") && !ctx.Request.Path.StartsWithSegments("/api/auth"))
-                {
-                    ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    ctx.HandleResponse();
-                }
+                // Nur das ID-Token behalten. Access- und Refresh-Token braucht die BFF nicht; sie blähen das Cookie auf,
+                // und zu große Antwort-Header weist der Ingress mit 502 ab.
+                var idToken = ctx.Properties?.GetTokenValue(OpenIdConnectParameterNames.IdToken);
+                ctx.Properties?.StoreTokens(idToken is null
+                    ? []
+                    : [new AuthenticationToken { Name = OpenIdConnectParameterNames.IdToken, Value = idToken }]);
                 return Task.CompletedTask;
             };
         });

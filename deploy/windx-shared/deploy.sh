@@ -26,7 +26,8 @@ display_name() {
   esac
 }
 
-kubectl get namespace "$NS" >/dev/null 2>&1 || kubectl create namespace "$NS" >/dev/null
+# apply statt "get || create": ein kurzer API-Fehler beim get führte sonst zu AlreadyExists und Abbruch.
+kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 echo "== Geheimnisse in $NS"
 if ! kubectl -n "$NS" get secret windx-shared-secrets >/dev/null 2>&1; then
   args=(--from-literal=keycloak-admin-password="$(rand)" --from-literal=keycloak-db-password="$(rand)")

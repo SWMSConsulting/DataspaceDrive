@@ -31,5 +31,7 @@ WORKDIR /app
 COPY --from=backend /app ./
 # 8080: UI und API (Ingress), 8090: Content-Endpunkt nur für die EDC-Dataplane
 EXPOSE 8080 8090
+# Die Ports bindet die Anwendung selbst (Drive:Ports); sonst meldet Kestrel "Overriding address(es)".
+ENV ASPNETCORE_HTTP_PORTS=""
 USER $APP_UID
 ENTRYPOINT ["dotnet", "DataspaceDrive.Api.dll"]

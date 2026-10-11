@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace DataspaceDrive.Infrastructure;
 
@@ -19,7 +20,7 @@ public static class InfrastructureServiceCollectionExtensions
 {
     public static IServiceCollection AddDriveInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddDbContext<DriveDbContext>(options => options.UseNpgsql(configuration.GetConnectionString("Drive")));
+        services.AddDbContext<DriveDbContext>(options => options.UseNpgsql(PostgresConnectionString(configuration)));
 
         services.AddOptions<FileSystemBlobStoreOptions>().Bind(configuration.GetSection("Storage:FileSystem"));
         services.AddSingleton<FileSystemBlobStore>();
@@ -50,4 +51,9 @@ public static class InfrastructureServiceCollectionExtensions
             .PersistKeysToDbContext<DriveDbContext>();
         return services;
     }
+
+    // Ohne Kerberos: sonst versucht Npgsql beim Verbindungsaufbau libgssapi zu laden, die im Container fehlt.
+    private static string PostgresConnectionString(IConfiguration configuration) =>
+        new NpgsqlConnectionStringBuilder(configuration.GetConnectionString("Drive")) { GssEncryptionMode = GssEncryptionMode.Disable }
+            .ConnectionString;
 }

@@ -8,6 +8,7 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | quote }}
     nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.ingress.proxyBodySize | quote }}
+    nginx.ingress.kubernetes.io/proxy-buffer-size: {{ .Values.ingress.proxyBufferSize | quote }}
     nginx.ingress.kubernetes.io/proxy-read-timeout: {{ .Values.ingress.proxyTimeoutSeconds | quote }}
     nginx.ingress.kubernetes.io/proxy-send-timeout: {{ .Values.ingress.proxyTimeoutSeconds | quote }}
     {{- if .Values.ingress.whitelistSourceRange }}
