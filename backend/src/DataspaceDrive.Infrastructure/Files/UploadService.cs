@@ -25,10 +25,13 @@ public sealed class UploadService(
     DriveDbContext db,
     AccessResolver access,
     IUploadStaging staging,
+    IBlobStore blobs,
     IVirusScanner scanner,
     TimeProvider clock,
     IOptions<UploadOptions> options) : IUploadService
 {
+    private const int MaxSaveAttempts = 3;
+
     private static readonly FileExtensionContentTypeProvider ContentTypes = new();
 
     private readonly UploadOptions _options = options.Value;
@@ -80,18 +83,54 @@ public sealed class UploadService(
 
     public async Task<DriveItem> CompleteAsync(DrivePrincipal principal, Guid uploadId, string contentType, CancellationToken ct)
     {
+        var (session, folder) = await CompletableAsync(principal, uploadId, ct);
+        var versionId = Guid.NewGuid();
+        var blob = await staging.PromoteAsync(session.Id, $"blobs/{versionId:N}", ct);
+        try
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    return await RecordVersionAsync(principal, session, folder, versionId, blob, contentType, ct);
+                }
+                catch (DbUpdateException) when (attempt < MaxSaveAttempts)
+                {
+                    // Gleichzeitiger Upload mit demselben Namen: neu lesen, dieser Upload wird dann die nächste Version.
+                    db.ChangeTracker.Clear();
+                    (session, folder) = await CompletableAsync(principal, uploadId, ct);
+                }
+            }
+        }
+        catch
+        {
+            // Der Inhalt liegt schon unter dem Blob-Schlüssel; ohne Datenbankeintrag wäre er verwaist.
+            await blobs.DeleteAsync(blob.Key, CancellationToken.None);
+            throw;
+        }
+    }
+
+    /// <summary>Upload vollständig, Zielordner vorhanden und beschreibbar, kein gleichnamiger Unterordner.</summary>
+    private async Task<(UploadSession Session, Folder Folder)> CompletableAsync(DrivePrincipal principal, Guid uploadId, CancellationToken ct)
+    {
         var session = await OwnSessionAsync(principal, uploadId, ct);
         if (session.ReceivedBytes != session.DeclaredSize)
             throw new ConflictException($"Upload unvollständig: {session.ReceivedBytes} von {session.DeclaredSize} Bytes empfangen.");
         var folder = await db.Folders.FirstOrDefaultAsync(f => f.Id == session.FolderId && f.DeletedAt == null, ct)
             ?? throw new NotFoundException("Der Zielordner existiert nicht mehr.");
         await access.RequireAsync(principal, folder.SpaceId, Permission.Write, ct);
-
         var normalized = ItemName.Normalize(session.FileName);
         if (await db.Folders.AnyAsync(f => f.ParentId == folder.Id && f.DeletedAt == null && f.NormalizedName == normalized, ct))
             throw new ConflictException("In diesem Ordner gibt es bereits einen Ordner mit diesem Namen.");
+        return (session, folder);
+    }
 
+    /// <summary>Legt die Datei an oder hängt eine neue Version an; gleichnamige Dateien im Ordner werden versioniert.</summary>
+    private async Task<DriveItem> RecordVersionAsync(DrivePrincipal principal, UploadSession session, Folder folder, Guid versionId,
+        BlobInfo blob, string contentType, CancellationToken ct)
+    {
         var now = Now;
+        var normalized = ItemName.Normalize(session.FileName);
         var file = await db.Files.FirstOrDefaultAsync(f => f.FolderId == folder.Id && f.DeletedAt == null && f.NormalizedName == normalized, ct);
         var isNewFile = file is null;
         file ??= new FileEntry
@@ -102,8 +141,6 @@ public sealed class UploadService(
         var latest = isNewFile ? null : await db.FileVersions.Where(v => v.FileEntryId == file.Id).MaxAsync(v => (int?)v.VersionNo, ct);
         var versionNo = (latest ?? 0) + 1;
 
-        var versionId = Guid.NewGuid();
-        var blob = await staging.PromoteAsync(session.Id, $"blobs/{versionId:N}", ct);
         db.FileVersions.Add(new FileVersion
         {
             Id = versionId, FileEntryId = file.Id, VersionNo = versionNo, BlobKey = blob.Key, SizeBytes = blob.Length, Sha256 = blob.Sha256,

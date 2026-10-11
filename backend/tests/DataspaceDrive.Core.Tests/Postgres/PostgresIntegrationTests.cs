@@ -62,7 +62,7 @@ public sealed class PostgresIntegrationTests : IAsyncLifetime
         var blobs = new FileSystemBlobStore(Options.Create(new FileSystemBlobStoreOptions { RootPath = _dataRoot }));
         var access = new AccessResolver(db);
         var files = new FileService(db, access, blobs, clock, NullLogger<FileService>.Instance);
-        var uploads = new UploadService(db, access, new FileSystemUploadStaging(blobs), new DisabledVirusScanner(), clock,
+        var uploads = new UploadService(db, access, new FileSystemUploadStaging(blobs), blobs, new DisabledVirusScanner(), clock,
             Options.Create(new UploadOptions { ChunkSize = 4 }));
 
         var root = (await files.GetSpacesAsync(principal, CancellationToken.None)).Single().RootFolderId;
