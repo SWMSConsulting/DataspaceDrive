@@ -14,6 +14,7 @@ public class ClamAvScannerTests
     [InlineData("stream: OK\0", ScanVerdict.Clean, null)]
     [InlineData("stream: Eicar-Test-Signature FOUND\0", ScanVerdict.Infected, "Eicar-Test-Signature")]
     [InlineData("INSTREAM size limit exceeded. ERROR\0", ScanVerdict.NotScannable, "Größenlimit von clamd überschritten")]
+    [InlineData("stream: Heuristics.Limits.Exceeded.MaxScanTime FOUND\0", ScanVerdict.NotScannable, "Heuristics.Limits.Exceeded.MaxScanTime")]
     [InlineData("stream: Can't allocate memory ERROR\0", ScanVerdict.Error, "stream: Can't allocate memory ERROR")]
     [InlineData("", ScanVerdict.Error, "keine Antwort von clamd")]
     public void Replies_are_parsed(string reply, ScanVerdict verdict, string? detail)

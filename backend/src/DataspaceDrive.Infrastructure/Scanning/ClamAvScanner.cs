@@ -17,8 +17,11 @@ public sealed class ClamAvOptions
 
     public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(15);
 
-    /// <summary>Muss zu <c>StreamMaxLength</c> in clamd.conf passen; größere Dateien gelten als nicht prüfbar.</summary>
-    public long MaxStreamBytes { get; set; } = 2L * 1024 * 1024 * 1024 - 1;
+    /// <summary>
+    /// Muss zu <c>StreamMaxLength</c> in clamd.conf passen (2047 MiB); ClamAV prüft höchstens 2 GiB - 1 Byte,
+    /// größere Dateien gelten als nicht prüfbar.
+    /// </summary>
+    public long MaxStreamBytes { get; set; } = 2047L * 1024 * 1024;
 }
 
 /// <summary>Prüft Inhalte über das clamd-Protokoll INSTREAM (Teilstücke mit 4-Byte-Längenpräfix).</summary>
@@ -27,6 +30,8 @@ public sealed class ClamAvScanner(IOptions<ClamAvOptions> options) : IVirusScann
     private readonly ClamAvOptions _options = options.Value;
 
     public bool Enabled => true;
+
+    public long? MaxBytes => _options.MaxStreamBytes;
 
     public async Task<ScanResult> ScanAsync(Stream content, CancellationToken ct)
     {
@@ -71,7 +76,11 @@ public sealed class ClamAvScanner(IOptions<ClamAvOptions> options) : IVirusScann
         {
             var signature = text[..^" FOUND".Length];
             var colon = signature.IndexOf(": ", StringComparison.Ordinal);
-            return new ScanResult(ScanVerdict.Infected, colon >= 0 ? signature[(colon + 2)..] : signature);
+            signature = colon >= 0 ? signature[(colon + 2)..] : signature;
+            // Mit AlertExceedsMax meldet clamd überschrittene Limits als Fund; das ist kein Virus, aber ungeprüft.
+            return signature.StartsWith("Heuristics.Limits.Exceeded", StringComparison.Ordinal)
+                ? new ScanResult(ScanVerdict.NotScannable, signature)
+                : new ScanResult(ScanVerdict.Infected, signature);
         }
         if (text.Contains("size limit exceeded", StringComparison.OrdinalIgnoreCase))
             return new ScanResult(ScanVerdict.NotScannable, "Größenlimit von clamd überschritten");
@@ -104,6 +113,8 @@ public sealed class ClamAvScanner(IOptions<ClamAvOptions> options) : IVirusScann
 public sealed class DisabledVirusScanner : IVirusScanner
 {
     public bool Enabled => false;
+
+    public long? MaxBytes => null;
 
     public Task<ScanResult> ScanAsync(Stream content, CancellationToken ct) =>
         throw new InvalidOperationException("Der Virenscan ist nicht konfiguriert.");

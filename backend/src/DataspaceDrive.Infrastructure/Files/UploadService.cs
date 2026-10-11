@@ -40,6 +40,10 @@ public sealed class UploadService(
         var name = ItemName.Validate(fileName);
         if (size < 0 || size > _options.MaxFileSize)
             throw new InvalidInputException($"Dateien dürfen höchstens {_options.MaxFileSize / (1024 * 1024)} MB groß sein.");
+        // Ungeprüfte Dateien bleiben gesperrt; ein Upload, der nie herunterladbar wäre, wird gleich abgelehnt.
+        if (scanner.Enabled && size > scanner.MaxBytes)
+            throw new InvalidInputException(
+                $"Dateien über {scanner.MaxBytes / (1024 * 1024)} MB kann der Virenscan nicht prüfen; sie werden deshalb nicht angenommen.");
         var folder = await db.Folders.FirstOrDefaultAsync(f => f.Id == folderId && f.DeletedAt == null, ct)
             ?? throw new NotFoundException("Der Ordner wurde nicht gefunden.");
         await access.RequireAsync(principal, folder.SpaceId, Permission.Write, ct);

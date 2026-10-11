@@ -253,10 +253,16 @@ public sealed class FileApiTests : IClassFixture<DriveApiFactory>
             var blocked = await client.GetAsync($"/api/files/{infected.GetProperty("id").GetGuid()}/content");
             Assert.Equal(HttpStatusCode.Forbidden, blocked.StatusCode);
             Assert.Contains("Eicar-Test-Signature", await blocked.Content.ReadAsStringAsync());
+
+            _factory.Scanner.MaxBytes = 4;
+            var tooLarge = await client.PostAsJsonAsync("/api/uploads", new { folderId = root, fileName = "gross.bin", size = 5 });
+            Assert.Equal(HttpStatusCode.BadRequest, tooLarge.StatusCode);
+            Assert.Contains("Virenscan", await tooLarge.Content.ReadAsStringAsync());
         }
         finally
         {
             _factory.Scanner.Enabled = false;
+            _factory.Scanner.MaxBytes = null;
         }
     }
 }

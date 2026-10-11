@@ -46,8 +46,9 @@ postgres:
 scanning:
   clamavHost: ""
   clamavPort: 3310
-  # Muss zu StreamMaxLength in clamd.conf passen; größere Dateien gelten als nicht prüfbar.
-  maxStreamBytes: 4194304000
+  # Muss zu StreamMaxLength in clamd.conf passen (2047 MiB; ClamAV prüft höchstens 2 GiB - 1 Byte).
+  # Mit Virenscan werden größere Uploads abgelehnt, weil ungeprüfte Dateien gesperrt blieben.
+  maxStreamBytes: 2146435072
   required: true
 
 clamav:

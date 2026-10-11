@@ -169,6 +169,8 @@ public sealed class FakeVirusScanner : IVirusScanner
 {
     public bool Enabled { get; set; }
 
+    public long? MaxBytes { get; set; }
+
     public async Task<ScanResult> ScanAsync(Stream content, CancellationToken ct)
     {
         using var reader = new StreamReader(content);

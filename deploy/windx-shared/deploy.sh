@@ -63,7 +63,12 @@ done
 kubectl -n "$NS" create secret generic keycloak-realms "${realm_args[@]}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
 echo "== Manifeste anwenden"
-kubectl -n "$NS" apply -f "$HERE/manifests.yaml" >/dev/null
+applied="$(kubectl -n "$NS" apply -f "$HERE/manifests.yaml")"
+# clamd liest seine Konfiguration nur beim Start.
+if grep -q '^configmap/clamav configured' <<<"$applied"; then
+  kubectl -n "$NS" rollout restart deployment/clamav >/dev/null
+  echo "   ClamAV-Konfiguration geändert, clamd startet neu"
+fi
 
 echo "== Drive-Secrets der Teilnehmer ergänzen"
 for p in $PARTICIPANTS; do

@@ -59,8 +59,12 @@ TCPAddr 0.0.0.0
 MaxThreads 4
 ReadTimeout 300
 CommandReadTimeout 30
-StreamMaxLength 4000M
-MaxFileSize 4000M
-MaxScanSize 4000M
+# ClamAV prüft höchstens 2 GiB - 1 Byte; größere Dateien gelten als nicht prüfbar.
+StreamMaxLength 2047M
+MaxFileSize 2047M
+MaxScanSize 2047M
+# Überschrittene Limits melden statt eine nur teilweise geprüfte Datei als sauber auszugeben.
+AlertExceedsMax yes
+MaxScanTime 600000
 ConcurrentDatabaseReload no
 {{- end -}}
