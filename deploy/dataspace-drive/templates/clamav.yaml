@@ -1,0 +1,94 @@
+{{- if .Values.clamav.enabled }}
+# Eingebetteter ClamAV; freshclam lädt die Signaturen beim Start (Egress nötig, erster Start dauert Minuten).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "drive.fullname" . }}-clamav
+  labels:
+    {{- include "drive.componentLabels" (dict "root" . "component" "clamav") | nindent 4 }}
+data:
+  clamd.conf: |
+    {{- include "drive.clamdConf" . | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "drive.fullname" . }}-clamav
+  labels:
+    {{- include "drive.componentLabels" (dict "root" . "component" "clamav") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "drive.componentSelectorLabels" (dict "root" . "component" "clamav") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "drive.componentLabels" (dict "root" . "component" "clamav") | nindent 8 }}
+      annotations:
+        checksum/config: {{ include "drive.clamdConf" . | sha256sum }}
+    spec:
+      containers:
+        - name: clamav
+          image: {{ .Values.clamav.image | quote }}
+          ports:
+            - name: clamd
+              containerPort: 3310
+          readinessProbe:
+            tcpSocket:
+              port: clamd
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          livenessProbe:
+            tcpSocket:
+              port: clamd
+            initialDelaySeconds: 300
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.clamav.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/clamav/clamd.conf
+              subPath: clamd.conf
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "drive.fullname" . }}-clamav
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "drive.fullname" . }}-clamav
+  labels:
+    {{- include "drive.componentLabels" (dict "root" . "component" "clamav") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: clamd
+      port: 3310
+      targetPort: clamd
+  selector:
+    {{- include "drive.componentSelectorLabels" (dict "root" . "component" "clamav") | nindent 4 }}
+---
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "drive.fullname" . }}-clamav
+  labels:
+    {{- include "drive.componentLabels" (dict "root" . "component" "clamav") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "drive.componentSelectorLabels" (dict "root" . "component" "clamav") | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "drive.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 3310
+          protocol: TCP
+{{- end }}
+{{- end }}

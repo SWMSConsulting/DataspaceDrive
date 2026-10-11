@@ -42,7 +42,8 @@ jobs:
 
       - name: Helm-Chart prüfen
         run: |
-          helm lint deploy/dataspace-drive --set secrets.edcApiKey=lint --set secrets.deliveryTokenKey=bGludA==
+          helm lint deploy/dataspace-drive --set secrets.edcApiKey=lint --set secrets.deliveryTokenKey=bGludA== \
+            --set secrets.postgresPassword=lint --set oidc.authority=https://idp.example/realms/lint
           for p in alice bob dave; do
             helm template "drive-$p" deploy/dataspace-drive -f "deploy/dataspace-drive/values-$p.yaml" \
               --set secrets.edcApiKey=lint --set secrets.deliveryTokenKey=bGludA== > /dev/null

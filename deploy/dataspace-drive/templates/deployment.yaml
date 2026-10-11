@@ -62,7 +62,47 @@ spec:
             - name: Drive__DeliveryTokens__CurrentVersion
               value: "1"
             - name: Storage__FileSystem__RootPath
-              value: /data/blobs
+              value: /data
+            {{- if .Values.postgres.enabled }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "drive.secretName" . }}
+                  key: postgres-password
+            - name: ConnectionStrings__Drive
+              value: "Host={{ include "drive.fullname" . }}-postgres;Port=5432;Database=drive;Username=drive;Password=$(POSTGRES_PASSWORD)"
+            {{- else }}
+            - name: ConnectionStrings__Drive
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "drive.secretName" . }}
+                  key: connection-string
+            {{- end }}
+            - name: Auth__Oidc__Authority
+              value: {{ required "oidc.authority ist Pflicht" .Values.oidc.authority | quote }}
+            - name: Auth__Oidc__ClientId
+              value: {{ .Values.oidc.clientId | quote }}
+            - name: Auth__Oidc__ClientSecret
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "drive.secretName" . }}
+                  key: oidc-client-secret
+            - name: Auth__Oidc__RoleClaim
+              value: {{ .Values.oidc.roleClaim | quote }}
+            - name: Auth__Oidc__GroupClaim
+              value: {{ .Values.oidc.groupClaim | quote }}
+            - name: Scanning__ClamAv__Host
+              value: {{ include "drive.clamavHost" . | quote }}
+            - name: Scanning__ClamAv__Port
+              value: {{ .Values.scanning.clamavPort | quote }}
+            - name: Scanning__ClamAv__MaxStreamBytes
+              value: {{ .Values.scanning.maxStreamBytes | int64 | quote }}
+            - name: Scanning__Required
+              value: {{ .Values.scanning.required | quote }}
+            - name: Uploads__ChunkSize
+              value: {{ .Values.uploads.chunkSize | int64 | quote }}
+            - name: Uploads__MaxFileSize
+              value: {{ .Values.uploads.maxFileSize | int64 | quote }}
           volumeMounts:
             - name: data
               mountPath: /data

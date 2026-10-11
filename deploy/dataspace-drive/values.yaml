@@ -22,6 +22,48 @@ ports:
   app: 8080
   content: 8090
 
+# Anmeldung über den Identity Provider des Unternehmens (OIDC Authorization Code Flow im Backend).
+oidc:
+  authority: ""     # Realm-URL, z. B. https://sso.example.com/realms/firma
+  clientId: dataspace-drive
+  roleClaim: roles
+  groupClaim: groups
+
+# Eigene PostgreSQL-Instanz je Drive; ohne sie liest die Drive den Schlüssel connection-string aus dem Secret.
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  storageClass: csi-cinder-high-speed-gen2-luks
+  size: 2Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# Virenscan: entweder ein eingebetteter ClamAV (clamav.enabled) oder ein vorhandener clamd (scanning.clamavHost).
+scanning:
+  clamavHost: ""
+  clamavPort: 3310
+  # Muss zu StreamMaxLength in clamd.conf passen; größere Dateien gelten als nicht prüfbar.
+  maxStreamBytes: 4194304000
+  required: true
+
+clamav:
+  enabled: false
+  image: clamav/clamav:1.5.4
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1200Mi
+    limits:
+      memory: 2Gi
+
+uploads:
+  chunkSize: 8388608
+  maxFileSize: 10737418240
+
 storage:
   # Verschlüsselte StorageClass (LUKS) für die Dateiablage.
   storageClass: csi-cinder-high-speed-gen2-luks
@@ -29,11 +71,13 @@ storage:
   existingClaim: ""
 
 # Geheimnisse: entweder hier (nur per --set beim Deploy) oder über existingSecret mit den Schlüsseln
-# edc-api-key und delivery-token-key-1 (Base64, mindestens 32 Bytes).
+# edc-api-key, delivery-token-key-1 (Base64, mindestens 32 Bytes), postgres-password und oidc-client-secret.
 secrets:
   create: true
   edcApiKey: ""
   deliveryTokenKey: ""
+  postgresPassword: ""
+  oidcClientSecret: ""
 existingSecret: ""
 
 service:
@@ -49,6 +93,8 @@ ingress:
   whitelistSourceRange: ""
   # Uploads laufen in Teilstücken; die Grenze muss über der Chunk-Größe liegen.
   proxyBodySize: 16m
+  # Der Abschluss eines großen Uploads berechnet die Prüfsumme über die ganze Datei.
+  proxyTimeoutSeconds: 600
   extraAnnotations: {}
 
 networkPolicy:

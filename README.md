@@ -63,10 +63,12 @@ kubectl -n windx-<teilnehmer> create secret generic dataspace-drive-<teilnehmer>
 
 Der Token-Schlüssel muss stabil bleiben: Er steckt in den `authCode`s aller veröffentlichten Zustell-Assets. Zum Rotieren einen zusätzlichen Schlüssel `delivery-token-key-2` anlegen und die aktuelle Version umstellen; alte Zustellungen bleiben gültig.
 
+Im windx-Dataspace nutzen die Instanzen gemeinsame Demo-Dienste im Namespace `windx-shared`: einen Keycloak mit einem Realm je Unternehmen (`https://sso-windx.cluster.swms-cloud.com/realms/<teilnehmer>`) und einen ClamAV. `deploy/windx-shared/deploy.sh` legt sie an, erzeugt Zufalls-Passwörter und ergänzt in den Drive-Secrets `oidc-client-secret` und `postgres-password`. Die Demo-Zugangsdaten landen lokal in `deploy/windx-shared/zugangsdaten.local.md` (von Git ausgeschlossen). Beim Kunden zeigt `oidc.authority` auf dessen Identity Provider, und ClamAV läuft eingebettet (`clamav.enabled=true`) oder als vorhandener Dienst.
+
 Hinweise für das erste Deployment:
 - Die NetworkPolicy lässt Port 8080 nur aus `ingress-nginx` und Port 8090 nur aus den Dataplane-Pods zu. Beim ersten Rollout prüfen, dass die HTTP-Probes des Kubelets durchkommen (Calico erlaubt Verkehr vom eigenen Node üblicherweise).
 - Das PVC (`csi-cinder-high-speed-gen2-luks`) trägt `helm.sh/resource-policy: keep` und überlebt `helm uninstall`.
-- Postgres, ClamAV und OIDC kommen mit Phase 1 ins Chart.
+- Die Drive bringt ihre eigene PostgreSQL mit (`postgres.enabled`, verschlüsseltes Volume); die Migration läuft beim Start.
 
 ## Spike
 

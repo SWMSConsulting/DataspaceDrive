@@ -18,3 +18,10 @@ existingSecret: dataspace-drive-bob-secrets
 
 storage:
   size: 5Gi
+
+# Gemeinsame Demo-Dienste aus deploy/windx-shared (ein Keycloak-Realm je Unternehmen, ein ClamAV für alle).
+oidc:
+  authority: https://sso-windx.cluster.swms-cloud.com/realms/bob
+
+scanning:
+  clamavHost: clamav.windx-shared.svc.cluster.local

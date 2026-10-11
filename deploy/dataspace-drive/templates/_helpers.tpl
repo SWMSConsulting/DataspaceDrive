@@ -29,3 +29,38 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "drive.claimName" -}}
 {{- if .Values.storage.existingClaim -}}{{ .Values.storage.existingClaim }}{{- else -}}{{ include "drive.fullname" . }}-data{{- end -}}
 {{- end -}}
+
+{{- define "drive.clamavHost" -}}
+{{- if .Values.clamav.enabled -}}{{ include "drive.fullname" . }}-clamav{{- else -}}{{ .Values.scanning.clamavHost }}{{- end -}}
+{{- end -}}
+
+{{/* Eigener Name für Nebenkomponenten, damit sie nie unter die Selektoren der Anwendung fallen. */}}
+{{- define "drive.componentLabels" -}}
+app.kubernetes.io/name: {{ include "drive.name" .root }}-{{ .component }}
+app.kubernetes.io/instance: {{ .root.Release.Name }}
+app.kubernetes.io/part-of: {{ include "drive.name" .root }}
+{{- end -}}
+
+{{- define "drive.componentSelectorLabels" -}}
+app.kubernetes.io/name: {{ include "drive.name" .root }}-{{ .component }}
+app.kubernetes.io/instance: {{ .root.Release.Name }}
+{{- end -}}
+
+{{/* clamd-Konfiguration: Limits passend zu scanning.maxStreamBytes, keine doppelte Signaturdatenbank beim Reload. */}}
+{{- define "drive.clamdConf" -}}
+Foreground yes
+LogTime yes
+LogClean no
+DatabaseDirectory /var/lib/clamav
+TemporaryDirectory /tmp
+LocalSocket /tmp/clamd.sock
+TCPSocket 3310
+TCPAddr 0.0.0.0
+MaxThreads 4
+ReadTimeout 300
+CommandReadTimeout 30
+StreamMaxLength 4000M
+MaxFileSize 4000M
+MaxScanSize 4000M
+ConcurrentDatabaseReload no
+{{- end -}}

@@ -52,8 +52,21 @@ if (!app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(app.Configurat
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", true))
 {
-    using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<DriveDbContext>().Database.MigrateAsync();
+    // Die Postgres im selben Release startet unter Umständen später als die Anwendung; kurz warten statt abzustürzen.
+    for (var attempt = 1; ; attempt++)
+    {
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<DriveDbContext>().Database.MigrateAsync();
+            break;
+        }
+        catch (Exception ex) when (attempt < 30 && ex is Npgsql.NpgsqlException or System.Net.Sockets.SocketException or TimeoutException)
+        {
+            app.Logger.LogWarning("Datenbank noch nicht erreichbar (Versuch {Attempt}/30): {Message}", attempt, ex.Message);
+            await Task.Delay(TimeSpan.FromSeconds(2));
+        }
+    }
 }
 
 app.UseForwardedHeaders();
