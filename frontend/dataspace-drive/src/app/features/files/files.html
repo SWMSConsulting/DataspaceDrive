@@ -1,13 +1,48 @@
-<app-planned-feature
-  heading="Dateien"
-  phase="Phase 1"
-  description="Ablage für Ihre Dateien. Von hier aus geben Sie Dateien später an Partnerunternehmen frei."
-  [items]="items"
-/>
+<div class="page-header">
+  <h1 class="page-title">Dateien</h1>
+</div>
+
+<div class="search">
+  <dx-text-box
+    class="search-box"
+    placeholder="Dateien und Ordner suchen …"
+    mode="search"
+    [value]="searchTerm()"
+    (onValueChanged)="searchTerm.set($event.value ?? '')"
+    (onEnterKey)="search()"
+  ></dx-text-box>
+  <dx-button text="Suchen" icon="search" (onClick)="search()"></dx-button>
+  @if (searchResults() !== null) {
+    <dx-button text="Suche schließen" stylingMode="text" (onClick)="clearSearch()"></dx-button>
+  }
+</div>
+
+@if (searchError(); as message) {
+  <p class="error">{{ message }}</p>
+}
+
+@if (searchResults(); as results) {
+  <dx-data-grid class="results" [dataSource]="results" [showBorders]="true" keyExpr="id" noDataText="Keine Treffer.">
+    <dxi-column dataField="name" caption="Name"></dxi-column>
+    <dxi-column caption="Typ" [calculateCellValue]="formatType" [width]="90"></dxi-column>
+    <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="110"></dxi-column>
+    <dxi-column caption="Prüfung" [calculateCellValue]="formatScan" [width]="130"></dxi-column>
+    <dxi-column dataField="modifiedAt" caption="Geändert" dataType="datetime" [width]="170"></dxi-column>
+    <dxi-column caption="" [width]="120" cellTemplate="actions"></dxi-column>
+    <div *dxTemplate="let cell of 'actions'">
+      @if (!cell.data.isDirectory) {
+        <dx-button text="Herunterladen" stylingMode="text" (onClick)="download(cell.data)"></dx-button>
+      }
+    </div>
+  </dx-data-grid>
+}
 
 <dx-file-manager
   class="file-manager"
+  rootFolderName="Bereiche"
   [fileSystemProvider]="fileProvider"
   [permissions]="permissions"
-  [height]="480"
+  [upload]="upload"
+  [itemView]="itemView"
+  [height]="560"
 ></dx-file-manager>

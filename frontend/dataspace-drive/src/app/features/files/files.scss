@@ -1,3 +1,22 @@
+.search {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.search-box {
+  width: 360px;
+}
+
+.results {
+  margin-bottom: 16px;
+}
+
+.error {
+  color: #c62828;
+}
+
 .file-manager {
-  margin-top: 16px;
+  margin-top: 8px;
 }

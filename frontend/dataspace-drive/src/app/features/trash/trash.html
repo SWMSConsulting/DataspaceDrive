@@ -1,0 +1,17 @@
+<div class="page-header">
+  <h1 class="page-title">Papierkorb</h1>
+  <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+</div>
+<p class="hint">Gelöschte Dateien und Ordner. Beim Wiederherstellen kommen sie an ihren alten Ort zurück, sonst in den Bereich.</p>
+
+<dx-data-grid [dataSource]="items()" keyExpr="id" [showBorders]="true" noDataText="Der Papierkorb ist leer.">
+  <dxi-column dataField="name" caption="Name"></dxi-column>
+  <dxi-column caption="Typ" [calculateCellValue]="formatType" [width]="90"></dxi-column>
+  <dxi-column dataField="originalPath" caption="Ursprünglicher Ort"></dxi-column>
+  <dxi-column dataField="deletedAt" caption="Gelöscht am" dataType="datetime" sortOrder="desc" [width]="170"></dxi-column>
+  <dxi-column caption="" [width]="260" cellTemplate="actions"></dxi-column>
+  <div *dxTemplate="let cell of 'actions'">
+    <dx-button text="Wiederherstellen" stylingMode="text" (onClick)="restore(cell.data)"></dx-button>
+    <dx-button text="Endgültig löschen" stylingMode="text" type="danger" (onClick)="purge(cell.data)"></dx-button>
+  </div>
+</dx-data-grid>

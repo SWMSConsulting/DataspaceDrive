@@ -5,6 +5,7 @@ import { DxListModule } from 'devextreme-angular/ui/list';
 import { DxToolbarModule } from 'devextreme-angular/ui/toolbar';
 import { ItemClickEvent } from 'devextreme/ui/list';
 
+import { AuthService } from '../core/auth.service';
 import { ConfigService } from '../core/config.service';
 
 interface NavItem {
@@ -22,12 +23,14 @@ interface NavItem {
 export class Shell {
   private readonly router = inject(Router);
   private readonly configService = inject(ConfigService);
+  readonly auth = inject(AuthService);
 
   readonly drawerOpen = signal(true);
   readonly participant = computed(() => this.configService.config()?.bpn ?? '');
 
   readonly navItems: NavItem[] = [
     { text: 'Dateien', icon: 'folder', path: '/files' },
+    { text: 'Papierkorb', icon: 'trash', path: '/trash' },
     { text: 'Von mir geteilt', icon: 'share', path: '/shares' },
     { text: 'Eingang', icon: 'download', path: '/inbox' },
     { text: 'Partner', icon: 'group', path: '/partners' },
@@ -40,6 +43,13 @@ export class Shell {
     icon: 'menu',
     stylingMode: 'text',
     onClick: () => this.drawerOpen.update((open) => !open),
+  };
+
+  readonly logoutButtonOptions = {
+    icon: 'runner',
+    text: 'Abmelden',
+    stylingMode: 'text',
+    onClick: () => this.auth.logout(),
   };
 
   onNavItemClick(e: ItemClickEvent<NavItem>): void {

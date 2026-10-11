@@ -2,6 +2,8 @@
   <dxi-item location="before" widget="dxButton" [options]="menuButtonOptions"></dxi-item>
   <dxi-item location="before" cssClass="app-title" text="DataspaceDrive"></dxi-item>
   <dxi-item location="after" locateInMenu="never" cssClass="participant" [text]="participant()"></dxi-item>
+  <dxi-item location="after" locateInMenu="never" cssClass="user-name" [text]="auth.me()?.name ?? ''"></dxi-item>
+  <dxi-item location="after" widget="dxButton" [options]="logoutButtonOptions"></dxi-item>
 </dx-toolbar>
 
 <dx-drawer class="app-drawer" openedStateMode="shrink" position="left" revealMode="slide" [opened]="drawerOpen()">
