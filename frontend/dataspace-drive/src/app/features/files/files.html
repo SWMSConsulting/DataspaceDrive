@@ -50,6 +50,9 @@
   (onCurrentDirectoryChanged)="onCurrentDirectoryChanged($event)"
   (onSelectionChanged)="onSelectionChanged($event)"
   (onContextMenuItemClick)="onMenuItemClick($event)"
+  (onSelectedFileOpened)="onFileOpened($event)"
 ></dx-file-manager>
+
+<app-preview [file]="previewFile()" (closed)="previewFile.set(null)" />
 
 <app-share-dialog [files]="shareFiles()" (closed)="shareFiles.set(null)" />

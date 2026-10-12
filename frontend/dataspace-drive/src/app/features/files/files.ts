@@ -22,6 +22,7 @@ import { AuthService } from '../../core/auth.service';
 import { ConfigService } from '../../core/config.service';
 import { DriveApiService, DriveItem, SpaceInfo, errorText } from '../../core/drive-api.service';
 import { downloadFile, formatBytes, scanLabel } from '../../shared/format';
+import { Preview, PreviewFile, previewable } from './preview/preview';
 import { ShareDialog, ShareFile } from './share-dialog/share-dialog';
 
 /** Ordner bzw. Bereich im FileManager; Bereiche zeigen auf ihren Wurzelordner. */
@@ -42,6 +43,7 @@ interface FileData {
   size: number;
   dateModified: Date;
   scanLabel: string;
+  contentType: string | null;
 }
 
 const otherError = 32767;
@@ -54,7 +56,7 @@ const readOnlyPermissions = { create: false, copy: false, move: false, delete: f
 
 @Component({
   selector: 'app-files',
-  imports: [DxFileManagerModule, DxTextBoxModule, DxButtonModule, DxDataGridModule, ShareDialog],
+  imports: [DxFileManagerModule, DxTextBoxModule, DxButtonModule, DxDataGridModule, ShareDialog, Preview],
   templateUrl: './files.html',
   styleUrl: './files.scss',
 })
@@ -72,6 +74,7 @@ export class Files {
   private readonly itemsSelected = signal(false);
 
   readonly shareFiles = signal<ShareFile[] | null>(null);
+  readonly previewFile = signal<PreviewFile | null>(null);
   readonly canShare = computed(() => !!this.auth.me()?.canShareExternally && this.sharableHere());
 
   readonly toolbar = computed(() => {
@@ -89,6 +92,7 @@ export class Files {
   });
   readonly contextMenu = computed(() => {
     const items: (dxFileManagerContextMenuItem | FileManagerPredefinedContextMenuItem)[] = [
+      { name: 'preview', text: 'Vorschau', icon: 'find' },
       'create', 'upload', 'rename', 'move', 'download', 'delete', 'refresh',
     ];
     if (this.canShare()) {
@@ -169,9 +173,31 @@ export class Files {
   }
 
   onMenuItemClick(e: ContextMenuItemClickEvent): void {
-    if ((e.itemData as { name?: string } | undefined)?.name === 'share') {
+    const name = (e.itemData as { name?: string } | undefined)?.name;
+    if (name === 'share') {
       this.openShare();
+    } else if (name === 'preview' && e.fileSystemItem && !e.fileSystemItem.isDirectory) {
+      this.openPreview(e.fileSystemItem);
     }
+  }
+
+  /** Doppelklick auf eine Datei: Vorschau, wenn der Typ es erlaubt, sonst herunterladen. */
+  onFileOpened(e: { file: FileSystemItem }): void {
+    const data = e.file.dataItem as FileData;
+    if (previewable(data.contentType)) {
+      this.openPreview(e.file);
+    } else {
+      downloadFile(this.api.contentUrl(data.id));
+    }
+  }
+
+  private openPreview(item: FileSystemItem): void {
+    const data = item.dataItem as FileData;
+    if (!previewable(data.contentType)) {
+      notify('Für diesen Dateityp gibt es keine Vorschau; bitte herunterladen.', 'info', 3000);
+      return;
+    }
+    this.previewFile.set({ id: data.id, name: item.name, contentType: data.contentType });
   }
 
   private openShare(): void {
@@ -222,6 +248,7 @@ export class Files {
             size: item.size,
             dateModified: new Date(item.modifiedAt),
             scanLabel: scanLabel(item.scanStatus),
+            contentType: item.contentType,
           },
     );
   }

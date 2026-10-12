@@ -89,6 +89,20 @@ public static class FileEndpoints
             return Results.File(stream, content.ContentType, content.FileName, enableRangeProcessing: true);
         });
 
+        api.MapGet("/files/{fileId:guid}/preview", async (Guid fileId, int? version, CurrentUser current, IFileService files,
+            IBlobStore blobs, HttpContext context, CancellationToken ct) =>
+        {
+            var content = await files.GetContentAsync(await current.PrincipalAsync(ct), fileId, version, ct);
+            var kind = FilePreview.KindOf(content.ContentType);
+            if (kind is null)
+                return Results.Problem(statusCode: StatusCodes.Status415UnsupportedMediaType, title: "Für diesen Dateityp gibt es keine Vorschau.");
+            if (kind == FilePreview.Kind.Text && content.Size > FilePreview.MaxTextBytes)
+                return Results.Problem(statusCode: StatusCodes.Status413PayloadTooLarge, title: "Die Textdatei ist für eine Vorschau zu groß.");
+            FilePreview.ApplyHeaders(context.Response, kind.Value, content.FileName);
+            return Results.File(await blobs.OpenReadAsync(content.BlobKey, ct), kind == FilePreview.Kind.Text ? "text/plain; charset=utf-8" : content.ContentType,
+                enableRangeProcessing: true);
+        });
+
         api.MapPost("/uploads", async (StartUploadRequest request, CurrentUser current, IUploadService uploads, CancellationToken ct) =>
             await uploads.StartAsync(await current.PrincipalAsync(ct), request.FolderId, request.FileName, request.Size, ct));
 

@@ -1,0 +1,19 @@
+<dx-popup
+  [visible]="file() !== null"
+  (onHidden)="closed.emit()"
+  [title]="file()?.name ?? ''"
+  width="90vw"
+  height="88vh"
+  [showCloseButton]="true"
+>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="downloadButtonOptions"></dxi-popup-toolbar-item>
+  <div *dxTemplate="let data of 'content'" class="preview">
+    @if (file()) {
+      @if (isImage()) {
+        <img class="image" [src]="url()" [alt]="file()?.name" />
+      } @else {
+        <iframe class="frame" [src]="frameUrl()" [title]="file()?.name ?? ''"></iframe>
+      }
+    }
+  </div>
+</dx-popup>

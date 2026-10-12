@@ -266,4 +266,29 @@ public sealed class FileApiTests : IClassFixture<DriveApiFactory>
         Assert.False(File.Exists(staged));
         Assert.Equal(HttpStatusCode.NotFound, (await client.PutAsync($"/api/uploads/{uploadId}/chunks/1", part)).StatusCode);
     }
+
+    [Fact]
+    public async Task Preview_serves_safe_types_inline_and_refuses_the_rest()
+    {
+        var client = await _factory.ClientForAsync("preview-user");
+        var root = await RootFolderAsync(client);
+        var png = await UploadAsync(client, root, "Rotor.png", [0x89, 0x50, 0x4E, 0x47, 1, 2, 3]);
+        var text = await UploadAsync(client, root, "Notiz.txt", "<script>alert(1)</script>"u8.ToArray());
+        var svg = await UploadAsync(client, root, "Logo.svg", "<svg onload=\"alert(1)\"/>"u8.ToArray());
+        var html = await UploadAsync(client, root, "Seite.html", "<h1>x</h1>"u8.ToArray());
+
+        var image = await client.GetAsync($"/api/files/{png.GetProperty("id").GetGuid()}/preview");
+        Assert.Equal(HttpStatusCode.OK, image.StatusCode);
+        Assert.Equal("image/png", image.Content.Headers.ContentType!.MediaType);
+        Assert.StartsWith("inline", image.Content.Headers.ContentDisposition!.ToString());
+        Assert.Contains("sandbox", image.Headers.GetValues("Content-Security-Policy").Single());
+        Assert.Equal("nosniff", image.Headers.GetValues("X-Content-Type-Options").Single());
+
+        var plain = await client.GetAsync($"/api/files/{text.GetProperty("id").GetGuid()}/preview");
+        Assert.Equal("text/plain", plain.Content.Headers.ContentType!.MediaType);
+        Assert.Contains("sandbox", plain.Headers.GetValues("Content-Security-Policy").Single());
+
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, (await client.GetAsync($"/api/files/{svg.GetProperty("id").GetGuid()}/preview")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, (await client.GetAsync($"/api/files/{html.GetProperty("id").GetGuid()}/preview")).StatusCode);
+    }
 }
