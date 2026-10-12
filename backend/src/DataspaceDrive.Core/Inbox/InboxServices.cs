@@ -24,7 +24,10 @@ public sealed record IncomingOfferInfo(
     DateTime? DecidedAt,
     string? Error,
     DateTime? CompletedAt,
-    IReadOnlyList<IncomingItemInfo> Items);
+    IReadOnlyList<IncomingItemInfo> Items,
+    int Revision,
+    string? PreviousTargetPath,
+    Guid? PreviousTargetFolderId);
 
 /// <summary>Eingang: Zustellungen der Partner an dieses Unternehmen. Annehmen und Ablehnen erfordert die Rolle drive-inbox.</summary>
 public interface IInboxService

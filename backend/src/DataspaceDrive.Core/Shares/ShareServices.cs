@@ -26,6 +26,7 @@ public sealed record DeliveryInfo(
     DateTime? LastRetrievalAt,
     string? LastError);
 
+/// <param name="HasNewerVersions">Mindestens eine geteilte Datei hat inzwischen eine neuere Version (Anlass zum Aktualisieren).</param>
 public sealed record ShareSummary(
     Guid Id,
     string Title,
@@ -35,7 +36,13 @@ public sealed record ShareSummary(
     DateTime CreatedAt,
     DateTime ExpiresAt,
     IReadOnlyList<ShareItemInfo> Items,
-    IReadOnlyList<DeliveryInfo> Deliveries);
+    IReadOnlyList<DeliveryInfo> Deliveries,
+    Guid LineageId,
+    int Revision,
+    bool HasNewerVersions);
+
+/// <summary>Aktualisieren: Nachricht und Ablauf optional, sonst wie bisher.</summary>
+public sealed record UpdateShareRequest(string? Message, DateTime? ExpiresAt);
 
 public sealed record RetrievalInfo(DateTime OccurredAt, string Decision, string? ConsumerBpn, string? AgreementId, string? ItemKey,
     long? Offset, long? Length);
@@ -56,4 +63,10 @@ public interface IShareService
 
     /// <summary>Fehlgeschlagene Anlage erneut versuchen.</summary>
     Task<DeliveryInfo> RetryDeliveryAsync(DrivePrincipal principal, Guid deliveryId, CancellationToken ct);
+
+    /// <summary>
+    /// Teilt den aktuellen Stand der ursprünglichen Auswahl als neue Revision an alle noch belieferten Partner und löst die
+    /// bisherige Freigabe ab.
+    /// </summary>
+    Task<ShareSummary> UpdateAsync(DrivePrincipal principal, Guid shareId, UpdateShareRequest request, CancellationToken ct);
 }

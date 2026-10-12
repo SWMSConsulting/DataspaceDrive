@@ -2,6 +2,7 @@ using DataspaceDrive.Core;
 using DataspaceDrive.Core.Access;
 using DataspaceDrive.Core.Audit;
 using DataspaceDrive.Core.Files;
+using DataspaceDrive.Core.Partners;
 using DataspaceDrive.Core.Shares;
 using DataspaceDrive.Infrastructure.Files;
 using DataspaceDrive.Infrastructure.Persistence;
@@ -25,8 +26,7 @@ public sealed class ShareService(
 
     public async Task<ShareSummary> CreateAsync(DrivePrincipal principal, CreateShareRequest request, CancellationToken ct)
     {
-        if (!principal.Roles.Contains(DrivePrincipal.RoleExternalShare))
-            throw new AccessDeniedException("Freigaben an andere Unternehmen sind für dieses Konto nicht freigeschaltet.");
+        RequireSharer(principal);
         var fileIds = (request.FileIds ?? []).Distinct().ToList();
         var folderIds = (request.FolderIds ?? []).Distinct().ToList();
         var partnerIds = (request.PartnerIds ?? []).Distinct().ToList();
@@ -34,12 +34,70 @@ public sealed class ShareService(
             throw new InvalidInputException("Bitte mindestens eine Datei oder einen Ordner auswählen.");
         if (partnerIds.Count == 0)
             throw new InvalidInputException("Bitte mindestens einen Partner auswählen.");
-
-        var direct = await db.Files.Where(f => fileIds.Contains(f.Id) && f.DeletedAt == null).ToListAsync(ct);
-        if (direct.Count != fileIds.Count)
+        var partners = await db.Partners.Where(p => partnerIds.Contains(p.Id)).ToListAsync(ct);
+        if (partners.Count != partnerIds.Count)
+            throw new NotFoundException("Mindestens ein Partner wurde nicht gefunden.");
+        foreach (var partner in partners)
+        {
+            if (!partner.SharingEnabled || partner.Blocked)
+                throw new InvalidInputException($"An {partner.Name} darf derzeit nicht freigegeben werden.");
+            if (!partner.IsResolved)
+                throw new InvalidInputException($"{partner.Name} ist noch nicht im Dataspace aufgelöst; bitte die Verwaltung informieren.");
+        }
+        var direct = await db.Files.Where(f => fileIds.Contains(f.Id) && f.DeletedAt == null).CountAsync(ct);
+        if (direct != fileIds.Count)
             throw new NotFoundException("Mindestens eine Datei wurde nicht gefunden.");
+
+        var share = await CreateRevisionAsync(principal, fileIds, folderIds, partners, request.Title, request.Message, request.ExpiresAt, null, ct);
+        await db.SaveChangesAsync(ct);
+        return (await SummariesAsync([share], ct))[0];
+    }
+
+    public async Task<ShareSummary> UpdateAsync(DrivePrincipal principal, Guid shareId, UpdateShareRequest request, CancellationToken ct)
+    {
+        RequireSharer(principal);
+        var previous = await db.Shares.FirstOrDefaultAsync(s => s.Id == shareId, ct) ?? throw new NotFoundException("Die Freigabe wurde nicht gefunden.");
+        RequireOwner(principal, previous);
+        if (await db.Shares.AnyAsync(s => s.SupersedesShareId == previous.Id, ct))
+            throw new ConflictException("Es gibt bereits eine neuere Revision dieser Freigabe.");
+        var current = await db.Deliveries.Where(d => d.ShareId == previous.Id
+            && (d.State == DeliveryState.Active || d.State == DeliveryState.Provisioning || d.State == DeliveryState.ProvisioningFailed)).ToListAsync(ct);
+        if (current.Count == 0)
+            throw new ConflictException("Diese Freigabe wird an niemanden mehr zugestellt; bitte neu teilen.");
+        var partnerIds = current.Select(d => d.PartnerId).ToList();
+        var partners = (await db.Partners.Where(p => partnerIds.Contains(p.Id)).ToListAsync(ct))
+            .Where(p => p.SharingEnabled && !p.Blocked && p.IsResolved).ToList();
+        if (partners.Count == 0)
+            throw new ConflictException("Keiner der bisherigen Partner darf derzeit beliefert werden.");
+
+        // Ursprüngliche Auswahl im aktuellen Stand: gelöschte Elemente entfallen, neue Dateien in geteilten Ordnern kommen hinzu.
+        var fileIds = ParseIds(previous.SourceFileIds);
+        var folderIds = ParseIds(previous.SourceFolderIds);
+        if (fileIds.Count == 0 && folderIds.Count == 0)
+            fileIds = await db.ShareItems.Where(i => i.ShareId == previous.Id).Select(i => i.FileEntryId).Distinct().ToListAsync(ct);
+        fileIds = await db.Files.Where(f => fileIds.Contains(f.Id) && f.DeletedAt == null).Select(f => f.Id).ToListAsync(ct);
+        folderIds = await db.Folders.Where(f => folderIds.Contains(f.Id) && f.DeletedAt == null).Select(f => f.Id).ToListAsync(ct);
+        if (fileIds.Count == 0 && folderIds.Count == 0)
+            throw new ConflictException("Die geteilten Dateien und Ordner gibt es nicht mehr.");
+        var expiresAt = request.ExpiresAt ?? (previous.ExpiresAt > Now.AddHours(1) ? previous.ExpiresAt : null);
+
+        var share = await CreateRevisionAsync(principal, fileIds, folderIds, partners, previous.Title, request.Message ?? previous.Message, expiresAt,
+            previous, ct);
+        foreach (var delivery in current)
+            Revoke(principal, delivery, $"ersetzt durch Revision {share.Revision}");
+        await db.SaveChangesAsync(ct);
+        return (await SummariesAsync([share], ct))[0];
+    }
+
+    /// <summary>Legt Freigabe, Dateien, Zustellungen und EDC-Aufträge an (ohne zu speichern).</summary>
+    private async Task<Share> CreateRevisionAsync(DrivePrincipal principal, IReadOnlyList<Guid> fileIds, IReadOnlyList<Guid> folderIds,
+        IReadOnlyList<Partner> partners, string? requestedTitle, string? requestedMessage, DateTime? requestedExpiry, Share? previous,
+        CancellationToken ct)
+    {
+        var direct = await db.Files.Where(f => fileIds.Contains(f.Id) && f.DeletedAt == null).ToListAsync(ct);
         // Einzeln gewählte Dateien liegen beim Empfänger oben, Ordnerinhalte unter ihrem Pfad.
-        var entries = fileIds.Select(id => (File: direct.Single(f => f.Id == id), Path: (string?)null)).ToList();
+        var entries = fileIds.Where(id => direct.Any(f => f.Id == id))
+            .Select(id => (File: direct.Single(f => f.Id == id), Path: (string?)null)).ToList();
         var folderNames = new List<string>();
         foreach (var folderId in folderIds)
         {
@@ -63,34 +121,30 @@ public sealed class ShareService(
                 throw new ConflictException($"„{file.Name}“ ist noch nicht auf Viren geprüft oder gesperrt und kann nicht geteilt werden.");
         }
 
-        var partners = await db.Partners.Where(p => partnerIds.Contains(p.Id)).ToListAsync(ct);
-        if (partners.Count != partnerIds.Count)
-            throw new NotFoundException("Mindestens ein Partner wurde nicht gefunden.");
-        foreach (var partner in partners)
-        {
-            if (!partner.SharingEnabled || partner.Blocked)
-                throw new InvalidInputException($"An {partner.Name} darf derzeit nicht freigegeben werden.");
-            if (!partner.IsResolved)
-                throw new InvalidInputException($"{partner.Name} ist noch nicht im Dataspace aufgelöst; bitte die Verwaltung informieren.");
-        }
-
         var now = Now;
-        var expiresAt = request.ExpiresAt?.ToUniversalTime() ?? now + _options.DefaultLifetime;
+        var expiresAt = requestedExpiry?.ToUniversalTime() ?? now + _options.DefaultLifetime;
         if (expiresAt < now.AddMinutes(5))
             throw new InvalidInputException("Das Ablaufdatum muss in der Zukunft liegen.");
         // Ein Tag Spielraum, damit „heute + maximale Dauer“ aus dem Datumsfeld nicht an der Uhrzeit scheitert.
         if (expiresAt > now + _options.MaxLifetime + TimeSpan.FromDays(1))
             throw new InvalidInputException($"Freigaben laufen höchstens {_options.MaxLifetime.TotalDays:0} Tage.");
-        var title = string.IsNullOrWhiteSpace(request.Title)
+        var title = string.IsNullOrWhiteSpace(requestedTitle)
             ? (folderNames.Count == 1 && fileIds.Count == 0 ? folderNames[0] : files.Count == 1 ? files[0].Name : $"{files.Count} Dateien")
-            : request.Title.Trim();
+            : requestedTitle.Trim();
         if (title.Length > MaxTitleLength)
             throw new InvalidInputException($"Der Titel darf höchstens {MaxTitleLength} Zeichen lang sein.");
-        var message = string.IsNullOrWhiteSpace(request.Message) ? null : request.Message.Trim();
+        var message = string.IsNullOrWhiteSpace(requestedMessage) ? null : requestedMessage.Trim();
         if (message?.Length > MaxMessageLength)
             throw new InvalidInputException($"Die Nachricht darf höchstens {MaxMessageLength} Zeichen lang sein.");
 
-        var share = new Share { Id = Guid.NewGuid(), Title = title, Message = message, CreatedBy = principal.UserId, CreatedAt = now, ExpiresAt = expiresAt };
+        var id = Guid.NewGuid();
+        var share = new Share
+        {
+            Id = id, Title = title, Message = message, CreatedBy = principal.UserId, CreatedAt = now, ExpiresAt = expiresAt,
+            LineageId = previous?.LineageId ?? id, Revision = (previous?.Revision ?? 0) + 1, SupersedesShareId = previous?.Id,
+            SourceFileIds = fileIds.Count == 0 ? null : string.Join(',', fileIds),
+            SourceFolderIds = folderIds.Count == 0 ? null : string.Join(',', folderIds),
+        };
         db.Shares.Add(share);
         // Reihenfolge wie ausgewählt; die Schlüssel "1", "2", … stehen im Manifest und im Abrufpfad.
         for (var i = 0; i < entries.Count; i++)
@@ -114,12 +168,21 @@ public sealed class ShareService(
             db.Deliveries.Add(delivery);
             db.DeliveryTasks.Add(new DeliveryTask { Kind = DeliveryTaskKind.Provision, DeliveryId = delivery.Id, CreatedAt = now, NextAttemptAt = now });
         }
-        Audit(principal, "share.created", "share", share.Id,
-            $"{title}: {entries.Count} Datei(en){(folderNames.Count > 0 ? " aus " + string.Join(", ", folderNames) : "")} an "
+        Audit(principal, previous is null ? "share.created" : "share.updated", "share", share.Id,
+            $"{title} (Revision {share.Revision}): {entries.Count} Datei(en){(folderNames.Count > 0 ? " aus " + string.Join(", ", folderNames) : "")} an "
             + $"{string.Join(", ", partners.Select(p => p.Bpn))}, Ablauf {expiresAt:O}");
-        await db.SaveChangesAsync(ct);
-        return (await SummariesAsync([share], ct))[0];
+        return share;
     }
+
+    private static void RequireSharer(DrivePrincipal principal)
+    {
+        if (!principal.Roles.Contains(DrivePrincipal.RoleExternalShare))
+            throw new AccessDeniedException("Freigaben an andere Unternehmen sind für dieses Konto nicht freigeschaltet.");
+    }
+
+    private static List<Guid> ParseIds(string? ids) =>
+        (ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty).Distinct().ToList();
 
     public async Task<IReadOnlyList<ShareSummary>> ListAsync(DrivePrincipal principal, bool all, CancellationToken ct)
     {
@@ -204,7 +267,7 @@ public sealed class ShareService(
     }
 
     /// <summary>Sperrt die Zustellung sofort (der Content-Endpunkt liefert nur aktive aus) und plant den Abbau im EDC.</summary>
-    private void Revoke(DrivePrincipal principal, Delivery delivery)
+    private void Revoke(DrivePrincipal principal, Delivery delivery, string? reason = null)
     {
         if (delivery.State is not (DeliveryState.Active or DeliveryState.Provisioning or DeliveryState.ProvisioningFailed))
             return; // bereits widerrufen, abgelaufen oder im Abbau
@@ -212,7 +275,7 @@ public sealed class ShareService(
         delivery.RevokedBy = principal.UserId;
         delivery.ConcurrencyStamp = Guid.NewGuid();
         db.DeliveryTasks.Add(new DeliveryTask { Kind = DeliveryTaskKind.End, DeliveryId = delivery.Id, CreatedAt = Now, NextAttemptAt = Now });
-        Audit(principal, "delivery.revoked", "delivery", delivery.Id, delivery.RecipientBpn);
+        Audit(principal, "delivery.revoked", "delivery", delivery.Id, reason is null ? delivery.RecipientBpn : $"{delivery.RecipientBpn}, {reason}");
     }
 
     private async Task<(Delivery Delivery, Share Share)> OwnDeliveryAsync(DrivePrincipal principal, Guid deliveryId, CancellationToken ct)
@@ -240,6 +303,9 @@ public sealed class ShareService(
         var partnerNames = await db.Partners.Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, ct);
         var userIds = shares.Select(s => s.CreatedBy).Distinct().ToList();
         var userNames = await db.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+        var fileIds = items.Select(i => i.FileEntryId).Distinct().ToList();
+        var currentVersions = await db.Files.Where(f => fileIds.Contains(f.Id) && f.DeletedAt == null)
+            .ToDictionaryAsync(f => f.Id, f => f.CurrentVersionId, ct);
         return shares.Select(s => new ShareSummary(
                 s.Id, s.Title, s.Message, s.CreatedBy, userNames.GetValueOrDefault(s.CreatedBy, ""), s.CreatedAt, s.ExpiresAt,
                 items.Where(i => i.ShareId == s.Id).OrderBy(i => i.ItemKey.Length).ThenBy(i => i.ItemKey)
@@ -247,7 +313,9 @@ public sealed class ShareService(
                 deliveries.Where(d => d.ShareId == s.Id).OrderBy(d => partnerNames.GetValueOrDefault(d.PartnerId))
                     .Select(d => new DeliveryInfo(d.Id, d.PartnerId, partnerNames.GetValueOrDefault(d.PartnerId, d.RecipientBpn), d.RecipientBpn,
                         d.State, d.ExpiresAt, d.ActivatedAt, d.EndedAt, d.RetrievalCount, d.LastRetrievalAt, d.LastError))
-                    .ToList()))
+                    .ToList(),
+                s.LineageId, s.Revision,
+                items.Any(i => i.ShareId == s.Id && currentVersions.TryGetValue(i.FileEntryId, out var v) && v != i.FileVersionId)))
             .ToList();
     }
 

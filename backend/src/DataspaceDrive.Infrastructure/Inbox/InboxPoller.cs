@@ -153,7 +153,7 @@ public sealed class InboxPoller(
                 Title = Limit(offer.Title, 200), Message = offer.Message is null ? null : Limit(offer.Message, 2000),
                 SenderOrganization = offer.SenderOrganization is null ? null : Limit(offer.SenderOrganization, 200),
                 ExpiresAt = offer.ExpiresAt?.UtcDateTime, TotalSize = offer.TotalSize, State = IncomingOfferState.New, StateChangedAt = now, FirstSeenAt = now,
-                LastSeenAt = now,
+                LastSeenAt = now, LineageId = offer.LineageId is null ? null : Limit(offer.LineageId, 100), Revision = offer.Revision,
             };
             db.IncomingOffers.Add(incoming);
             foreach (var item in offer.Items)
@@ -162,7 +162,7 @@ public sealed class InboxPoller(
                 {
                     Id = Guid.NewGuid(), OfferId = incoming.Id, ItemKey = Limit(item.Id, 20), Name = SafeName(item.Name), SizeBytes = item.Size,
                     Sha256 = item.Sha256.ToLowerInvariant(), ContentType = Limit(string.IsNullOrWhiteSpace(item.ContentType) ? "application/octet-stream" : item.ContentType, 255),
-                    RelativePath = SafePath(item.Path),
+                    RelativePath = SafePath(item.Path), SourceKey = item.Source is null ? null : Limit(item.Source, 100),
                 });
             }
             db.AuditEvents.Add(new AuditEvent

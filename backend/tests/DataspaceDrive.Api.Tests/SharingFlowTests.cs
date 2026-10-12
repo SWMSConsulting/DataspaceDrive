@@ -476,4 +476,81 @@ public sealed class SharingFlowTests : IAsyncLifetime
     [InlineData(null, null)]
     public void Folder_paths_from_partners_are_sanitized(string? path, string? expected) =>
         Assert.Equal(expected, InboxPoller.SafePath(path));
+
+    private async Task<Guid> AcceptOnlyNewOfferAsync(HttpClient bob, Guid folderId)
+    {
+        await _bob.PollAsync();
+        var offer = (await ReadAsync(await bob.GetAsync("/api/inbox"))).EnumerateArray().Single(o => o.GetProperty("state").GetString() == "New");
+        await ReadAsync(await bob.PostAsJsonAsync($"/api/inbox/{offer.GetProperty("id").GetGuid()}/accept", new { folderId }));
+        await _bob.RunInboxAsync();
+        return offer.GetProperty("id").GetGuid();
+    }
+
+    [Fact]
+    public async Task Updated_share_becomes_a_new_version_of_the_received_file()
+    {
+        var alice = await AliceSharerAsync();
+        var aliceRoot = await RootFolderAsync(alice);
+        await UploadAsync(alice, aliceRoot, "Pflichtenheft.pdf", "Version eins"u8.ToArray());
+        var fileId = (await ReadAsync(await alice.GetAsync($"/api/folders/{aliceRoot}/children"))).GetProperty("items")[0].GetProperty("id").GetGuid();
+        var partnerId = (await ReadAsync(await alice.GetAsync("/api/partners/targets"))).EnumerateArray().Single().GetProperty("id").GetGuid();
+        var first = await ReadAsync(await alice.PostAsJsonAsync("/api/shares", new { fileIds = new[] { fileId }, partnerIds = new[] { partnerId } }));
+        await _alice.RunDeliveryWorkerAsync();
+        var bob = await BobInboxAsync();
+        var bobRoot = await RootFolderAsync(bob);
+        await AcceptOnlyNewOfferAsync(bob, bobRoot);
+
+        await UploadAsync(alice, aliceRoot, "Pflichtenheft.pdf", "Version zwei"u8.ToArray());
+        var listed = (await ReadAsync(await alice.GetAsync("/api/shares"))).EnumerateArray().Single();
+        Assert.True(listed.GetProperty("hasNewerVersions").GetBoolean());
+        var second = await ReadAsync(await alice.PostAsJsonAsync($"/api/shares/{first.GetProperty("id").GetGuid()}/update", new { message = "Neue Fassung" }));
+        Assert.Equal(2, second.GetProperty("revision").GetInt32());
+        Assert.Equal(first.GetProperty("lineageId").GetGuid(), second.GetProperty("lineageId").GetGuid());
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await alice.PostAsJsonAsync($"/api/shares/{first.GetProperty("id").GetGuid()}/update", new { })).StatusCode);
+        await _alice.RunDeliveryWorkerAsync();
+        var shares = (await ReadAsync(await alice.GetAsync("/api/shares"))).EnumerateArray().ToList();
+        Assert.Equal("Revoked", shares.Single(s => s.GetProperty("revision").GetInt32() == 1).GetProperty("deliveries")[0].GetProperty("state").GetString());
+        Assert.Equal("Active", shares.Single(s => s.GetProperty("revision").GetInt32() == 2).GetProperty("deliveries")[0].GetProperty("state").GetString());
+
+        await _bob.PollAsync();
+        var update = (await ReadAsync(await bob.GetAsync("/api/inbox"))).EnumerateArray().Single(o => o.GetProperty("state").GetString() == "New");
+        Assert.Equal(2, update.GetProperty("revision").GetInt32());
+        Assert.Equal(bobRoot, update.GetProperty("previousTargetFolderId").GetGuid());
+        await AcceptOnlyNewOfferAsync(bob, bobRoot);
+
+        var copies = (await ReadAsync(await bob.GetAsync($"/api/folders/{bobRoot}/children"))).GetProperty("items").EnumerateArray()
+            .Where(i => i.GetProperty("name").GetString()!.StartsWith("Pflichtenheft", StringComparison.Ordinal)).ToList();
+        var copy = Assert.Single(copies);
+        var versions = await ReadAsync(await bob.GetAsync($"/api/files/{copy.GetProperty("id").GetGuid()}/versions"));
+        Assert.Equal(2, versions.GetArrayLength());
+        Assert.Equal("Version zwei", await (await bob.GetAsync($"/api/files/{copy.GetProperty("id").GetGuid()}/content")).Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Updating_a_folder_share_delivers_new_files_into_the_existing_structure()
+    {
+        var alice = await AliceSharerAsync();
+        var aliceRoot = await RootFolderAsync(alice);
+        var folder = (await ReadAsync(await alice.PostAsJsonAsync("/api/folders", new { parentId = aliceRoot, name = "Begehung" }))).GetProperty("id").GetGuid();
+        await UploadAsync(alice, folder, "Alt.txt", "alt"u8.ToArray());
+        var partnerId = (await ReadAsync(await alice.GetAsync("/api/partners/targets"))).EnumerateArray().Single().GetProperty("id").GetGuid();
+        var first = await ReadAsync(await alice.PostAsJsonAsync("/api/shares", new { folderIds = new[] { folder }, partnerIds = new[] { partnerId } }));
+        await _alice.RunDeliveryWorkerAsync();
+        var bob = await BobInboxAsync();
+        var bobRoot = await RootFolderAsync(bob);
+        await AcceptOnlyNewOfferAsync(bob, bobRoot);
+
+        await UploadAsync(alice, folder, "Neu.txt", "neu"u8.ToArray());
+        await ReadAsync(await alice.PostAsJsonAsync($"/api/shares/{first.GetProperty("id").GetGuid()}/update", new { }));
+        await _alice.RunDeliveryWorkerAsync();
+        await AcceptOnlyNewOfferAsync(bob, bobRoot);
+
+        var top = (await ReadAsync(await bob.GetAsync($"/api/folders/{bobRoot}/children"))).GetProperty("items").EnumerateArray()
+            .Where(i => i.GetProperty("isDirectory").GetBoolean()).ToList();
+        var begehung = Assert.Single(top);
+        var names = (await ReadAsync(await bob.GetAsync($"/api/folders/{begehung.GetProperty("id").GetGuid()}/children"))).GetProperty("items")
+            .EnumerateArray().Select(i => i.GetProperty("name").GetString()).Order().ToList();
+        Assert.Equal(["Alt.txt", "Neu.txt"], names);
+    }
 }

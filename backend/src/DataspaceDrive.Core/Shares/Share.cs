@@ -9,6 +9,19 @@ public sealed class Share
     public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime ExpiresAt { get; set; }
+
+    /// <summary>Gemeinsame Kennung aller Revisionen derselben Auswahl (die ID der ersten Freigabe).</summary>
+    public Guid LineageId { get; set; }
+
+    public int Revision { get; set; } = 1;
+
+    /// <summary>Freigabe, die diese Revision abgelöst hat.</summary>
+    public Guid? SupersedesShareId { get; set; }
+
+    /// <summary>Ursprüngliche Auswahl (kommagetrennte IDs); „Aktualisieren“ teilt deren aktuellen Stand.</summary>
+    public string? SourceFileIds { get; set; }
+
+    public string? SourceFolderIds { get; set; }
 }
 
 /// <summary>Datei einer Freigabe als Schnappschuss der Version zum Zeitpunkt des Teilens.</summary>

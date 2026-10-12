@@ -120,6 +120,21 @@ export class Inbox {
     this.target.set(e.node?.selected ? (e.itemData ?? null) : null);
   }
 
+  formatTitle = (row: IncomingOfferInfo): string => (row.revision > 1 ? `${row.title} (Aktualisierung, Revision ${row.revision})` : row.title);
+
+  /** Revision einer schon übernommenen Freigabe: direkt in den Ordner der letzten Übernahme. */
+  async acceptLikeLastTime(): Promise<void> {
+    const offer = this.acceptOffer();
+    if (!offer?.previousTargetFolderId) {
+      return;
+    }
+    await this.run(
+      () => this.api.accept(offer.id, offer.previousTargetFolderId!),
+      `„${offer.title}“ wird nach „${offer.previousTargetPath}“ übernommen.`,
+    );
+    this.acceptOffer.set(null);
+  }
+
   formatFrom = (row: IncomingOfferInfo): string =>
     row.senderOrganization && row.senderOrganization !== row.partnerName ? `${row.partnerName} (${row.senderOrganization})` : row.partnerName;
   formatFiles = (row: IncomingOfferInfo): string =>

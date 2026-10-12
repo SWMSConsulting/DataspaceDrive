@@ -275,7 +275,6 @@ public sealed class IncomingTransferWorker(
         foreach (var item in items)
         {
             var versionId = Guid.NewGuid();
-            var target = await EnsureFolderAsync(db, folders, item.RelativePath, step.Offer.DecidedBy!.Value, step.Now, ct);
             var blob = await staging.PromoteAsync(item.Id, $"blobs/{versionId:N}", ct);
             if (blob.Length != item.SizeBytes || !string.Equals(blob.Sha256, item.Sha256, StringComparison.OrdinalIgnoreCase))
             {
@@ -283,6 +282,26 @@ public sealed class IncomingTransferWorker(
                 item.ReceivedBytes = 0;
                 throw new TransferRefusedException($"„{item.Name}“ weicht vom Manifest ab (Größe oder SHA-256); die Datei wurde verworfen.");
             }
+            var scanStatus = scanner.Enabled ? ScanStatus.Pending : ScanStatus.NotScanned;
+            // Revision einer schon übernommenen Freigabe: die frühere Datei bekommt eine neue Version.
+            if (await PreviousCopyAsync(db, step.Offer, item, folder, ct) is { } previous)
+            {
+                var latest = await db.FileVersions.Where(v => v.FileEntryId == previous.Id).MaxAsync(v => (int?)v.VersionNo, ct) ?? 0;
+                db.FileVersions.Add(new FileVersion
+                {
+                    Id = versionId, FileEntryId = previous.Id, VersionNo = latest + 1, BlobKey = blob.Key, SizeBytes = blob.Length, Sha256 = blob.Sha256,
+                    ContentType = item.ContentType, ScanStatus = scanStatus, UploadedBy = step.Offer.DecidedBy!.Value, UploadedAt = step.Now,
+                });
+                previous.CurrentVersionId = versionId;
+                previous.ModifiedAt = step.Now;
+                previous.ConcurrencyStamp = Guid.NewGuid();
+                item.FileEntryId = previous.Id;
+                item.FileVersionId = versionId;
+                Audit(db, step.Now, "inbox.file-versioned", step.Offer, $"{previous.Name} v{latest + 1}, {blob.Length} Bytes, SHA-256 {blob.Sha256}");
+                await db.SaveChangesAsync(ct);
+                continue;
+            }
+            var target = await EnsureFolderAsync(db, folders, item.RelativePath, step.Offer.DecidedBy!.Value, step.Now, ct);
             var name = await FreeNameAsync(db, target.Id, item.Name, ct);
             var file = new FileEntry
             {
@@ -293,8 +312,7 @@ public sealed class IncomingTransferWorker(
             db.FileVersions.Add(new FileVersion
             {
                 Id = versionId, FileEntryId = file.Id, VersionNo = 1, BlobKey = blob.Key, SizeBytes = blob.Length, Sha256 = blob.Sha256,
-                ContentType = item.ContentType, ScanStatus = scanner.Enabled ? ScanStatus.Pending : ScanStatus.NotScanned,
-                UploadedBy = step.Offer.DecidedBy!.Value, UploadedAt = step.Now,
+                ContentType = item.ContentType, ScanStatus = scanStatus, UploadedBy = step.Offer.DecidedBy!.Value, UploadedAt = step.Now,
             });
             item.FileEntryId = file.Id;
             item.FileVersionId = versionId;
@@ -312,6 +330,31 @@ public sealed class IncomingTransferWorker(
         {
             logger.LogInformation("Transfer {TransferProcessId} konnte nicht beendet werden: {Error}", step.Offer.TransferProcessId, ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Datei aus einer früheren Revision derselben Freigabelinie und Quelldatei, sofern sie noch existiert und im Bereich des
+    /// Zielordners oder im persönlichen Bereich des Annehmenden liegt (dort ist das Schreibrecht ohne IdP-Rollen sicher).
+    /// </summary>
+    private static async Task<FileEntry?> PreviousCopyAsync(DriveDbContext db, IncomingOffer offer, IncomingItem item, Folder target, CancellationToken ct)
+    {
+        if (offer.LineageId is null || item.SourceKey is null || offer.Revision <= 1)
+            return null;
+        var fileId = await (from i in db.IncomingItems
+                            join o in db.IncomingOffers on i.OfferId equals o.Id
+                            where o.PartnerId == offer.PartnerId && o.LineageId == offer.LineageId && o.Revision < offer.Revision
+                                  && i.SourceKey == item.SourceKey && i.FileEntryId != null
+                            orderby o.Revision descending
+                            select i.FileEntryId).FirstOrDefaultAsync(ct);
+        if (fileId is null)
+            return null;
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId && f.DeletedAt == null, ct);
+        if (file is null)
+            return null;
+        if (file.SpaceId == target.SpaceId)
+            return file;
+        var personal = await db.Spaces.AnyAsync(s => s.Id == file.SpaceId && s.Kind == SpaceKind.Personal && s.OwnerUserId == offer.DecidedBy, ct);
+        return personal ? file : null;
     }
 
     /// <summary>

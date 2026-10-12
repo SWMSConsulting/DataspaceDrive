@@ -60,6 +60,10 @@ export interface ShareSummary {
   expiresAt: string;
   items: { itemKey: string; name: string; size: number; sha256: string; fileEntryId: string; relativePath: string | null }[];
   deliveries: DeliveryInfo[];
+  lineageId: string;
+  revision: number;
+  /** Mindestens eine geteilte Datei hat inzwischen eine neuere Version. */
+  hasNewerVersions: boolean;
 }
 
 export interface RetrievalInfo {
@@ -103,6 +107,9 @@ export interface IncomingOfferInfo {
   error: string | null;
   completedAt: string | null;
   items: IncomingItemInfo[];
+  revision: number;
+  previousTargetPath: string | null;
+  previousTargetFolderId: string | null;
 }
 
 export interface CreateShareRequest {
@@ -129,6 +136,10 @@ export class SharingApiService {
 
   shares(all = false): Promise<ShareSummary[]> {
     return firstValueFrom(this.http.get<ShareSummary[]>('/api/shares', { params: all ? { all: 'true' } : {} }));
+  }
+
+  updateShare(shareId: string, message?: string): Promise<ShareSummary> {
+    return firstValueFrom(this.http.post<ShareSummary>(`/api/shares/${shareId}/update`, { message: message || null }));
   }
 
   revokeShare(shareId: string): Promise<ShareSummary> {

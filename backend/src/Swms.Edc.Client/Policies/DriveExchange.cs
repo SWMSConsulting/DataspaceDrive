@@ -10,7 +10,8 @@ namespace Swms.Edc.Client.Policies;
 /// Datei einer Zustellung, wie sie im Manifest des Assets steht. <paramref name="Path"/> ist bei Ordnerfreigaben der
 /// relative Ordnerpfad („Begehung/Fotos“, Trenner „/“); Empfänger ohne Ordnerunterstützung legen die Datei flach ab.
 /// </summary>
-public sealed record ManifestItem(string Id, string Name, long Size, string Sha256, string ContentType, string? Path = null);
+/// <param name="Source">Stabile Kennung der Quelldatei über Revisionen hinweg; der Empfänger hängt neue Revisionen daran als Version an.</param>
+public sealed record ManifestItem(string Id, string Name, long Size, string Sha256, string ContentType, string? Path = null, string? Source = null);
 
 public sealed record DeliveryAssetSpec(
     string DeliveryId,
@@ -23,7 +24,9 @@ public sealed record DeliveryAssetSpec(
     DateTimeOffset ExpiresAt,
     IReadOnlyList<ManifestItem> Items,
     string ContentBaseUrl,
-    string AuthCode);
+    string AuthCode,
+    string? LineageId = null,
+    int Revision = 1);
 
 /// <summary>Zustellung aus dem Katalog eines Partners, wie sie der Empfänger liest.</summary>
 public sealed record DeliveryOffer(
@@ -35,7 +38,9 @@ public sealed record DeliveryOffer(
     string SenderBpn,
     string? SenderOrganization,
     DateTimeOffset? ExpiresAt,
-    IReadOnlyList<ManifestItem> Items)
+    IReadOnlyList<ManifestItem> Items,
+    string? LineageId = null,
+    int Revision = 1)
 {
     public long TotalSize => Items.Sum(i => i.Size);
 }
@@ -86,6 +91,12 @@ public static class DriveExchange
             properties["drive:message"] = spec.Message;
         if (!string.IsNullOrWhiteSpace(spec.SenderOrganization))
             properties["drive:senderOrganization"] = spec.SenderOrganization;
+        // Folgefreigaben derselben Auswahl teilen die Linie; die Revision zählt hoch.
+        if (!string.IsNullOrWhiteSpace(spec.LineageId))
+        {
+            properties["drive:lineageId"] = spec.LineageId;
+            properties["drive:revision"] = spec.Revision.ToString(CultureInfo.InvariantCulture);
+        }
         return new JsonObject
         {
             ["@context"] = new JsonObject { ["@vocab"] = EdcNamespaces.Edc, ["dct"] = EdcNamespaces.Dct, ["drive"] = Namespace },
@@ -149,8 +160,9 @@ public static class DriveExchange
         DateTimeOffset? expiresAt = DateTimeOffset.TryParse(Drive(dataset, "expiresAt"), CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : null;
         var title = JsonLd.GetString(dataset, "title") ?? JsonLd.GetString(dataset, "name") ?? assetId;
+        var revision = int.TryParse(Drive(dataset, "revision"), NumberStyles.None, CultureInfo.InvariantCulture, out var r) && r > 0 ? r : 1;
         return new DeliveryOffer(assetId, offerId, title, Drive(dataset, "message"), recipient, sender, Drive(dataset, "senderOrganization"),
-            expiresAt, items);
+            expiresAt, items, Drive(dataset, "lineageId"), revision);
     }
 
     /// <summary>

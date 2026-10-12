@@ -118,7 +118,16 @@ public sealed class InboxService(DriveDbContext db, AccessResolver access, IServ
         var partners = await db.Partners.Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, ct);
         var userIds = offers.Where(o => o.DecidedBy != null).Select(o => o.DecidedBy!.Value).Distinct().ToList();
         var users = await db.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
-        var folderIds = offers.Where(o => o.TargetFolderId != null).Select(o => o.TargetFolderId!.Value).Distinct().ToList();
+        // Für Revisionen: Ziel der zuletzt übernommenen Revision derselben Linie (für „Wie zuletzt annehmen“).
+        var lineages = offers.Where(o => o.LineageId != null && o.Revision > 1).Select(o => o.LineageId!).Distinct().ToList();
+        var earlier = await db.IncomingOffers
+            .Where(o => o.LineageId != null && lineages.Contains(o.LineageId) && o.State == IncomingOfferState.Completed && o.TargetFolderId != null)
+            .Select(o => new { o.PartnerId, o.LineageId, o.Revision, o.TargetFolderId }).ToListAsync(ct);
+        Guid? PreviousTarget(IncomingOffer o) => earlier
+            .Where(e => e.PartnerId == o.PartnerId && e.LineageId == o.LineageId && e.Revision < o.Revision)
+            .OrderByDescending(e => e.Revision).Select(e => e.TargetFolderId).FirstOrDefault();
+        var folderIds = offers.Where(o => o.TargetFolderId != null).Select(o => o.TargetFolderId!.Value)
+            .Concat(offers.Select(PreviousTarget).Where(f => f != null).Select(f => f!.Value)).Distinct().ToList();
         var paths = new Dictionary<Guid, string>();
         foreach (var folderId in folderIds)
             paths[folderId] = await PathAsync(folderId, ct);
@@ -130,7 +139,10 @@ public sealed class InboxService(DriveDbContext db, AccessResolver access, IServ
                 items.Where(i => i.OfferId == o.Id).OrderBy(i => i.ItemKey.Length).ThenBy(i => i.ItemKey)
                     .Select(i => new IncomingItemInfo(i.ItemKey, i.Name, i.SizeBytes, i.Sha256, i.ContentType, i.ReceivedBytes, i.FileEntryId,
                         i.FileVersionId is { } v && scans.TryGetValue(v, out var s) ? s : null, i.RelativePath))
-                    .ToList()))
+                    .ToList(),
+                o.Revision,
+                PreviousTarget(o) is { } previous ? paths.GetValueOrDefault(previous) : null,
+                PreviousTarget(o)))
             .ToList();
     }
 

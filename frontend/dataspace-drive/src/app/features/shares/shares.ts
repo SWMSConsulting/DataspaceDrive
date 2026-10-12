@@ -106,6 +106,22 @@ export class Shares {
   }
 
   canRevoke = (d: DeliveryInfo): boolean => ['Active', 'Provisioning', 'ProvisioningFailed'].includes(d.state);
+  /** Nur die jüngste Revision mit laufenden Zustellungen lässt sich aktualisieren. */
+  canUpdate = (s: ShareSummary): boolean =>
+    s.deliveries.some(this.canRevoke) && !this.shares().some((o) => o.lineageId === s.lineageId && o.revision > s.revision);
+  formatTitle = (row: ShareSummary): string => (row.revision > 1 ? `${row.title} (Revision ${row.revision})` : row.title);
+
+  async updateShare(share: ShareSummary): Promise<void> {
+    const ok = await confirm(
+      `Den aktuellen Stand von „${share.title}“ an alle laufenden Empfänger senden? Die bisherige Freigabe wird dabei abgelöst; ` +
+        'bereits übernommene Dateien erhalten beim Partner eine neue Version.',
+      'Freigabe aktualisieren',
+    );
+    if (!ok) {
+      return;
+    }
+    await this.run(() => this.api.updateShare(share.id), `„${share.title}“ wird als neue Revision bereitgestellt.`);
+  }
   canRevokeShare = (s: ShareSummary): boolean => s.deliveries.some(this.canRevoke);
 
   /** Ordnerfreigaben zeigen die geteilten Ordner, einzeln geteilte Dateien ihren Namen. */

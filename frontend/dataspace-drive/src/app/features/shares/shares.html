@@ -17,7 +17,13 @@
 
 <dx-data-grid [dataSource]="visibleShares()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" noDataText="Keine laufenden Freigaben.">
   <dxo-master-detail [enabled]="true" template="deliveries"></dxo-master-detail>
-  <dxi-column dataField="title" caption="Titel" [width]="200"></dxi-column>
+  <dxi-column caption="Titel" [calculateCellValue]="formatTitle" [width]="200" cellTemplate="titleCell"></dxi-column>
+  <div *dxTemplate="let cell of 'titleCell'">
+    {{ cell.value }}
+    @if (cell.data.hasNewerVersions && canUpdate(cell.data)) {
+      <div class="newer">neuere Version vorhanden</div>
+    }
+  </div>
   <dxi-column caption="Dateien" [calculateCellValue]="formatFiles"></dxi-column>
   <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="100" alignment="right"></dxi-column>
   <dxi-column caption="Empfänger" [calculateCellValue]="formatRecipients"></dxi-column>
@@ -26,8 +32,16 @@
   @if (showAll()) {
     <dxi-column dataField="createdByName" caption="Von" [width]="140"></dxi-column>
   }
-  <dxi-column caption="" [width]="130" cellTemplate="shareActions"></dxi-column>
+  <dxi-column caption="" [width]="230" cellTemplate="shareActions"></dxi-column>
   <div *dxTemplate="let cell of 'shareActions'">
+    @if (canUpdate(cell.data)) {
+      <dx-button
+        text="Aktualisieren"
+        stylingMode="text"
+        [type]="cell.data.hasNewerVersions ? 'default' : 'normal'"
+        (onClick)="updateShare(cell.data)"
+      ></dx-button>
+    }
     @if (canRevokeShare(cell.data)) {
       <dx-button text="Alle widerrufen" stylingMode="text" type="danger" (onClick)="revokeShare(cell.data)"></dx-button>
     }

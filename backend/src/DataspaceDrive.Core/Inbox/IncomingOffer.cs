@@ -13,6 +13,12 @@ public sealed class IncomingOffer
     public string? SenderOrganization { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public long TotalSize { get; set; }
+
+    /// <summary>Linie der Freigabe beim Absender; Revisionen derselben Linie aktualisieren bereits übernommene Dateien.</summary>
+    public string? LineageId { get; set; }
+
+    public int Revision { get; set; } = 1;
+
     public IncomingOfferState State { get; set; }
 
     /// <summary>Beginn des aktuellen Zustands; Wartezeiten der Übernahme zählen ab hier.</summary>
@@ -49,6 +55,9 @@ public sealed class IncomingItem
 
     /// <summary>Relativer Ordnerpfad aus dem Manifest (bereinigt); die Ablage legt die Ordner unter dem Zielordner an.</summary>
     public string? RelativePath { get; set; }
+
+    /// <summary>Stabile Kennung der Quelldatei beim Absender (über Revisionen gleich).</summary>
+    public string? SourceKey { get; set; }
 
     /// <summary>Bereits empfangene Bytes; ein unterbrochener Abruf setzt hier fort.</summary>
     public long ReceivedBytes { get; set; }

@@ -383,6 +383,10 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                     b.Property<long>("SizeBytes")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("SourceKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OfferId", "ItemKey")
@@ -435,6 +439,10 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("LastSeenAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("LineageId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("Message")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -458,6 +466,9 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
 
                     b.Property<string>("SenderOrganization")
                         .HasMaxLength(200)
@@ -492,6 +503,8 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PartnerId", "AssetId")
                         .IsUnique();
+
+                    b.HasIndex("PartnerId", "LineageId");
 
                     b.ToTable("incoming_offers", (string)null);
                 });
@@ -728,9 +741,26 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid>("LineageId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Message")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceFileIds")
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
+                    b.Property<string>("SourceFolderIds")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid?>("SupersedesShareId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -740,6 +770,8 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedBy");
+
+                    b.HasIndex("LineageId");
 
                     b.ToTable("shares", (string)null);
                 });

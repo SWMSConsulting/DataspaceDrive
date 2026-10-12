@@ -139,7 +139,10 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
             e.ToTable("shares");
             e.Property(x => x.Title).HasMaxLength(200);
             e.Property(x => x.Message).HasMaxLength(2000);
+            e.Property(x => x.SourceFileIds).HasMaxLength(20000);
+            e.Property(x => x.SourceFolderIds).HasMaxLength(4000);
             e.HasIndex(x => x.CreatedBy);
+            e.HasIndex(x => x.LineageId);
             e.HasOne<DriveUser>().WithMany().HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -205,6 +208,8 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
             e.Property(o => o.NegotiationId).HasMaxLength(200);
             e.Property(o => o.AgreementId).HasMaxLength(200);
             e.Property(o => o.TransferProcessId).HasMaxLength(200);
+            e.Property(o => o.LineageId).HasMaxLength(100);
+            e.HasIndex(o => new { o.PartnerId, o.LineageId });
             e.Property(o => o.Error).HasMaxLength(1000);
             e.Property(o => o.ConcurrencyStamp).IsConcurrencyToken();
             e.HasIndex(o => new { o.PartnerId, o.AssetId }).IsUnique();
@@ -220,6 +225,7 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
             e.Property(i => i.Sha256).HasMaxLength(64);
             e.Property(i => i.ContentType).HasMaxLength(255);
             e.Property(i => i.RelativePath).HasMaxLength(1000);
+            e.Property(i => i.SourceKey).HasMaxLength(100);
             e.HasIndex(i => new { i.OfferId, i.ItemKey }).IsUnique();
             e.HasOne<IncomingOffer>().WithMany().HasForeignKey(i => i.OfferId).OnDelete(DeleteBehavior.Cascade);
         });

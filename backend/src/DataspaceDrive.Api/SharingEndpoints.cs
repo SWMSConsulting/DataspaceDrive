@@ -26,6 +26,8 @@ public static class SharingEndpoints
             await shares.ListAsync(await current.PrincipalAsync(ct), all == true, ct));
         api.MapPost("/shares/{shareId:guid}/revoke", async (Guid shareId, CurrentUser current, IShareService shares, CancellationToken ct) =>
             await shares.RevokeShareAsync(await current.PrincipalAsync(ct), shareId, ct));
+        api.MapPost("/shares/{shareId:guid}/update", async (Guid shareId, UpdateShareRequest request, CurrentUser current, IShareService shares,
+            CancellationToken ct) => Results.Created($"/api/shares", await shares.UpdateAsync(await current.PrincipalAsync(ct), shareId, request, ct)));
         api.MapPost("/deliveries/{deliveryId:guid}/revoke", async (Guid deliveryId, CurrentUser current, IShareService shares, CancellationToken ct) =>
             await shares.RevokeDeliveryAsync(await current.PrincipalAsync(ct), deliveryId, ct));
         api.MapPost("/deliveries/{deliveryId:guid}/retry", async (Guid deliveryId, CurrentUser current, IShareService shares, CancellationToken ct) =>
