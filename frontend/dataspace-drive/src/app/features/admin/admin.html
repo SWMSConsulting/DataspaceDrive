@@ -26,6 +26,37 @@
   </div>
 </dx-data-grid>
 
+<div class="section-header edc-header">
+  <h2 class="section-title">Connector-Abgleich</h2>
+  <dx-button text="Jetzt prüfen" icon="refresh" [disabled]="checking()" (onClick)="checkEdc()"></dx-button>
+</div>
+<p class="hint">
+  Prüft die Contract Definitions des eigenen Connectors: Definitionen ohne Asset-Selektor geben jedes Asset frei und hebeln den Schutz der
+  Zustellungen aus. Verwaiste Zustellungs-Definitionen werden entfernt. Läuft alle 15 Minuten.
+</p>
+@if (edc(); as status) {
+  <p class="edc-summary">
+    @if (status.checkedAt) {
+      Zuletzt geprüft {{ status.checkedAt | date: 'dd.MM.yyyy HH:mm' }}:
+      @if (status.reachable) {
+        {{ status.contractDefinitions }} Contract Definitions, {{ status.activeDeliveries }} aktive Zustellungen,
+        {{ status.findings.length }} Befund(e).
+      } @else {
+        Connector nicht erreichbar ({{ status.error }}).
+      }
+    } @else {
+      Noch nicht geprüft.
+    }
+  </p>
+  @if (status.findings.length) {
+    <dx-data-grid [dataSource]="status.findings" [showBorders]="true" [wordWrapEnabled]="true">
+      <dxi-column caption="Schwere" [calculateCellValue]="formatSeverity" [width]="100"></dxi-column>
+      <dxi-column dataField="objectId" caption="Objekt" [width]="260"></dxi-column>
+      <dxi-column dataField="message" caption="Meldung"></dxi-column>
+    </dx-data-grid>
+  }
+}
+
 <h2 class="section-title planned-title">Geplant</h2>
 <ul class="planned-list">
   @for (item of plannedItems; track item) {

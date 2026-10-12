@@ -61,6 +61,22 @@ public sealed class EdcManagementClient(HttpClient http, EdcVersionProfile profi
     public Task<CreateOutcome> CreateContractDefinitionAsync(JsonObject definition, CancellationToken ct) =>
         CreateAsync("v3/contractdefinitions", definition, "Contract Definition anlegen", ct);
 
+    /// <summary>Alle Contract Definitions des Connectors, seitenweise gelesen.</summary>
+    public async Task<IReadOnlyList<JsonObject>> QueryContractDefinitionsAsync(CancellationToken ct, int pageSize = 200, int maxPages = 50)
+    {
+        var all = new List<JsonObject>();
+        for (var page = 0; page < maxPages; page++)
+        {
+            var result = await SendAsync(HttpMethod.Post, "v3/contractdefinitions/request", EdcRequests.QuerySpec(page * pageSize, pageSize),
+                "Contract Definitions lesen", ct);
+            var batch = JsonLd.Objects(result);
+            all.AddRange(batch);
+            if (batch.Count < pageSize)
+                break;
+        }
+        return all;
+    }
+
     /// <summary>False, wenn es die Contract Definition nicht (mehr) gibt.</summary>
     public async Task<bool> DeleteContractDefinitionAsync(string id, CancellationToken ct)
     {

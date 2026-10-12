@@ -49,6 +49,21 @@ export interface PartnerRequest {
   blocked: boolean;
 }
 
+export interface EdcFinding {
+  severity: 'Critical' | 'Warning' | 'Info';
+  objectId: string;
+  message: string;
+}
+
+export interface EdcStatus {
+  checkedAt: string | null;
+  reachable: boolean;
+  error: string | null;
+  contractDefinitions: number;
+  activeDeliveries: number;
+  findings: EdcFinding[];
+}
+
 export interface AuditEntry {
   id: number;
   occurredAt: string;
@@ -110,6 +125,14 @@ export class AdminApiService {
 
   resolvePartner(id: string): Promise<PartnerInfo> {
     return firstValueFrom(this.http.post<PartnerInfo>(`/api/admin/partners/${id}/resolve`, {}));
+  }
+
+  edcStatus(): Promise<EdcStatus> {
+    return firstValueFrom(this.http.get<EdcStatus>('/api/admin/edc'));
+  }
+
+  checkEdc(): Promise<EdcStatus> {
+    return firstValueFrom(this.http.post<EdcStatus>('/api/admin/edc/check', {}));
   }
 
   audit(take = 500): Promise<AuditEntry[]> {

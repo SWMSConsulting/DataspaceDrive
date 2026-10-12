@@ -1,6 +1,6 @@
 # Läufer für die Abnahme im Cluster (windx-Demo): lädt große Dateien über den Ingress, ohne die eigene
 # Internetanbindung zu belasten. Zugangsdaten kommen aus windx-shared-secrets (deploy/windx-shared/deploy.sh).
-# Teilnehmer anpassen: DRIVE_URL, DRIVE_USER, DRIVE_ADMIN und die Secret-Schlüssel.
+# Phase 1: DRIVE_URL, DRIVE_USER, DRIVE_ADMIN (ein Unternehmen); Phase 2: PW_<TEILNEHMER>_<NUTZER|ADMIN>.
 apiVersion: v1
 kind: Pod
 metadata:
@@ -38,6 +38,27 @@ spec:
             secretKeyRef:
               name: windx-shared-secrets
               key: alice-admin-password
+        # Phase 2: Konten beider Unternehmen
+        - name: PW_ALICE_NUTZER
+          valueFrom:
+            secretKeyRef:
+              name: windx-shared-secrets
+              key: alice-user-password
+        - name: PW_ALICE_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: windx-shared-secrets
+              key: alice-admin-password
+        - name: PW_BOB_NUTZER
+          valueFrom:
+            secretKeyRef:
+              name: windx-shared-secrets
+              key: bob-user-password
+        - name: PW_BOB_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: windx-shared-secrets
+              key: bob-admin-password
       # Bereit erst nach der Installation von requests.
       readinessProbe:
         exec:

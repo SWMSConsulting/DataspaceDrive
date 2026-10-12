@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { DxButtonModule } from 'devextreme-angular/ui/button';
 import { DxCheckBoxModule } from 'devextreme-angular/ui/check-box';
@@ -9,7 +10,16 @@ import { CustomItemCreatingEvent } from 'devextreme/ui/select_box';
 import { confirm } from 'devextreme/ui/dialog';
 import notify from 'devextreme/ui/notify';
 
-import { AclEntry, AdminApiService, KnownUser, PrincipalType, TeamPermission, TeamSpace } from '../../core/admin-api.service';
+import {
+  AclEntry,
+  AdminApiService,
+  EdcFinding,
+  EdcStatus,
+  KnownUser,
+  PrincipalType,
+  TeamPermission,
+  TeamSpace,
+} from '../../core/admin-api.service';
 import { errorText } from '../../core/drive-api.service';
 import { formatBytes } from '../../shared/format';
 
@@ -18,7 +28,7 @@ const permissionLabels: Record<TeamPermission, string> = { Read: 'Lesen', Write:
 
 @Component({
   selector: 'app-admin',
-  imports: [DxDataGridModule, DxButtonModule, DxCheckBoxModule, DxPopupModule, DxSelectBoxModule, DxTextBoxModule],
+  imports: [DatePipe, DxDataGridModule, DxButtonModule, DxCheckBoxModule, DxPopupModule, DxSelectBoxModule, DxTextBoxModule],
   templateUrl: './admin.html',
   styleUrl: './admin.scss',
 })
@@ -26,6 +36,8 @@ export class Admin {
   private readonly api = inject(AdminApiService);
 
   readonly spaces = signal<TeamSpace[]>([]);
+  readonly edc = signal<EdcStatus | null>(null);
+  readonly checking = signal(false);
   readonly users = signal<KnownUser[]>([]);
 
   readonly editorVisible = signal(false);
@@ -47,7 +59,7 @@ export class Admin {
 
   readonly plannedItems = [
     'Policy-Profile (CX-Nutzungsbedingungen)',
-    'EDC-Status, Abgleich (Reconciliation) und ausstehende Operationen',
+    'Ausstehende EDC-Operationen (Outbox) einsehen und anstoßen',
     'Quarantäne für verdächtige Dateien',
   ];
 
@@ -70,13 +82,34 @@ export class Admin {
 
   async reload(): Promise<void> {
     try {
-      const [spaces, users] = await Promise.all([this.api.teamSpaces(), this.api.knownUsers()]);
+      const [spaces, users, edc] = await Promise.all([this.api.teamSpaces(), this.api.knownUsers(), this.api.edcStatus()]);
       this.spaces.set(spaces);
       this.users.set(users);
+      this.edc.set(edc);
     } catch (error) {
       notify(errorText(error), 'error', 4000);
     }
   }
+
+  async checkEdc(): Promise<void> {
+    this.checking.set(true);
+    try {
+      const status = await this.api.checkEdc();
+      this.edc.set(status);
+      const critical = status.findings.filter((f) => f.severity === 'Critical').length;
+      notify(
+        status.reachable ? `Abgleich fertig: ${status.findings.length} Befund(e), davon ${critical} kritisch.` : `Connector nicht erreichbar: ${status.error}`,
+        critical > 0 || !status.reachable ? 'warning' : 'success',
+        4000,
+      );
+    } catch (error) {
+      notify(errorText(error), 'error', 5000);
+    } finally {
+      this.checking.set(false);
+    }
+  }
+
+  formatSeverity = (row: EdcFinding): string => ({ Critical: 'kritisch', Warning: 'Warnung', Info: 'Hinweis' })[row.severity];
 
   openCreate(): void {
     this.openEditor(null, '', [], false);

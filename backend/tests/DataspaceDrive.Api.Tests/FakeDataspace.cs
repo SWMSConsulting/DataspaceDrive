@@ -35,6 +35,9 @@ public sealed class FakeDataspace
         public Dictionary<string, JsonObject> Policies { get; } = [];
         public Dictionary<string, JsonObject> Assets { get; } = [];
         public Dictionary<string, (string AssetId, string AccessPolicyId)> ContractDefinitions { get; } = [];
+
+        /// <summary>Contract Definitions so, wie sie angelegt wurden (für die Abfrage der Reconciliation).</summary>
+        public Dictionary<string, JsonObject> ContractDefinitionBodies { get; } = [];
         public Dictionary<string, (string AssetId, Participant Consumer)> Agreements { get; } = [];
         public HashSet<string> Retired { get; } = [];
         public Dictionary<string, Negotiation> Negotiations { get; } = [];
@@ -102,7 +105,13 @@ public sealed class FakeDataspace
                     return Json(HttpStatusCode.Conflict, "[]");
                 var assetId = body!["assetsSelector"]![0]!["operandRight"]!.GetValue<string>();
                 self.ContractDefinitions[id] = (assetId, body["accessPolicyId"]!.GetValue<string>());
+                self.ContractDefinitionBodies[id] = body;
                 return Json(HttpStatusCode.OK, new JsonObject { ["@id"] = id });
+            }
+            case ("POST", "v3/contractdefinitions/request"):
+            {
+                var offset = body?["offset"]?.GetValue<int>() ?? 0;
+                return Json(HttpStatusCode.OK, new JsonArray(offset > 0 ? [] : self.ContractDefinitionBodies.Values.Select(b => (JsonNode)b.DeepClone()).ToArray()));
             }
             case ("POST", "v3/contractagreements/request"):
             {
@@ -135,7 +144,10 @@ public sealed class FakeDataspace
             }
         }
         if (method == HttpMethod.Delete && segments is ["v3", "contractdefinitions", var cdId])
+        {
+            self.ContractDefinitionBodies.Remove(cdId);
             return self.ContractDefinitions.Remove(cdId) ? new HttpResponseMessage(HttpStatusCode.NoContent) : Json(HttpStatusCode.NotFound, "[]");
+        }
         if (method == HttpMethod.Delete && segments is ["v3", "assets", var assetToDelete])
         {
             if (self.Agreements.Values.Any(a => a.AssetId == assetToDelete))

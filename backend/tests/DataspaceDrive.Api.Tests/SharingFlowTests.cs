@@ -389,4 +389,42 @@ public sealed class SharingFlowTests : IAsyncLifetime
         var stored = offer.GetProperty("items")[0].GetProperty("fileEntryId").GetGuid();
         Assert.Equal(HttpStatusCode.Forbidden, (await bob.GetAsync($"/api/files/{stored}/content")).StatusCode);
     }
+
+    [Fact]
+    public async Task Reconciliation_reports_open_selectors_and_cleans_orphans()
+    {
+        var (_, share, _) = await ShareFileAsync("Abgleich.txt", 32);
+        var deliveryId = share.GetProperty("deliveries")[0].GetProperty("id").GetGuid().ToString("N");
+        static System.Text.Json.Nodes.JsonObject Definition(string id, params System.Text.Json.Nodes.JsonObject[] selector) => new()
+        {
+            ["@id"] = id, ["accessPolicyId"] = "offen", ["contractPolicyId"] = "offen",
+            ["assetsSelector"] = new System.Text.Json.Nodes.JsonArray(selector.Select(c => (System.Text.Json.Nodes.JsonNode)c).ToArray()),
+        };
+        static System.Text.Json.Nodes.JsonObject Criterion(string op, System.Text.Json.Nodes.JsonNode right) =>
+            new() { ["operandLeft"] = "https://w3id.org/edc/v0.0.1/ns/id", ["operator"] = op, ["operandRight"] = right };
+        _aliceEdc.ContractDefinitionBodies["contract-1"] = Definition("contract-1");
+        _aliceEdc.ContractDefinitionBodies["contract-2"] = Definition("contract-2", Criterion("in", new System.Text.Json.Nodes.JsonArray("asset-1", "asset-2")));
+        _aliceEdc.ContractDefinitionBodies["contract-3"] = Definition("contract-3", Criterion("=", $"drive-d-{deliveryId}"));
+        _aliceEdc.ContractDefinitionBodies["drive-cd-0000000000000000000000000000dead"] = Definition("drive-cd-0000000000000000000000000000dead");
+        _aliceEdc.ContractDefinitions["drive-cd-0000000000000000000000000000dead"] = ("drive-d-dead", "x");
+        var admin = await _alice.ClientForAsync("admin", DrivePrincipal.RoleUser, DrivePrincipal.RoleAdmin);
+
+        var status = await ReadAsync(await admin.PostAsync("/api/admin/edc/check", null));
+        var findings = status.GetProperty("findings").EnumerateArray()
+            .ToDictionary(f => f.GetProperty("objectId").GetString()!, f => f.GetProperty("severity").GetString());
+
+        Assert.True(status.GetProperty("reachable").GetBoolean());
+        Assert.Equal("Critical", findings["contract-1"]);
+        Assert.False(findings.ContainsKey("contract-2"));
+        Assert.Equal("Warning", findings["contract-3"]);
+        Assert.Equal("Info", findings["drive-cd-0000000000000000000000000000dead"]);
+        Assert.DoesNotContain("drive-cd-0000000000000000000000000000dead", _aliceEdc.ContractDefinitionBodies.Keys);
+        Assert.False(findings.ContainsKey($"drive-cd-{deliveryId}"));
+
+        // Fehlt die Contract Definition einer aktiven Zustellung, meldet der Abgleich das.
+        _aliceEdc.ContractDefinitionBodies.Remove($"drive-cd-{deliveryId}");
+        status = await ReadAsync(await admin.PostAsync("/api/admin/edc/check", null));
+        Assert.Contains(status.GetProperty("findings").EnumerateArray(),
+            f => f.GetProperty("objectId").GetString() == $"drive-cd-{deliveryId}" && f.GetProperty("severity").GetString() == "Warning");
+    }
 }

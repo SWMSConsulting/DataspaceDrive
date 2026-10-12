@@ -71,6 +71,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddHostedService<DeliveryWorker>();
         services.AddHostedService(sp => sp.GetRequiredService<InboxPoller>());
         services.AddHostedService<IncomingTransferWorker>();
+        services.AddSingleton<EdcReconciliation>();
+        services.AddHostedService(sp => sp.GetRequiredService<EdcReconciliation>());
 
         services.AddOptions<ClamAvOptions>().Bind(configuration.GetSection("Scanning:ClamAv"));
         if (!string.IsNullOrWhiteSpace(configuration["Scanning:ClamAv:Host"]))

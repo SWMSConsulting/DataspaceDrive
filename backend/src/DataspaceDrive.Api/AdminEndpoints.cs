@@ -1,6 +1,7 @@
 using DataspaceDrive.Api.Auth;
 using DataspaceDrive.Core.Access;
 using DataspaceDrive.Core.Audit;
+using DataspaceDrive.Infrastructure.Sharing;
 
 namespace DataspaceDrive.Api;
 
@@ -34,6 +35,10 @@ public static class AdminEndpoints
 
         admin.MapGet("/audit", async (int? take, CurrentUser current, IAuditService audit, CancellationToken ct) =>
             await audit.RecentAsync(await current.PrincipalAsync(ct), take ?? 500, ct));
+
+        // Abgleich mit dem eigenen Connector: offene Contract Definitions, verwaiste und fehlende Zustellungs-Objekte.
+        admin.MapGet("/edc", (EdcReconciliation reconciliation) => reconciliation.Status);
+        admin.MapPost("/edc/check", async (EdcReconciliation reconciliation, CancellationToken ct) => await reconciliation.RunAsync(ct));
 
         return endpoints;
     }
