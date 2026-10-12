@@ -1,6 +1,6 @@
 # Konzept: DataspaceDrive
 
-Stand: 11.10.2026, Phase 0 (Konzept und Spike). Arbeitstitel analog zum DataspaceOperator.
+Stand: 12.10.2026: Phase 1 abgenommen, Phase 2 (Teilen über den Dataspace) umgesetzt. Arbeitstitel analog zum DataspaceOperator.
 
 ## 1. Ziel
 
@@ -92,7 +92,7 @@ Das Austauschprofil ist der Vertrag zwischen zwei Drive-Instanzen. Beide Seiten 
 
 - **Zustellung:** Eine Freigabe an **ein** Partnerunternehmen ergibt ein eigenes Asset und eine eigene Contract Definition. Eine Freigabe an mehrere Partner erzeugt mehrere Zustellungen. Das hält Mitempfänger verborgen, ermöglicht Widerruf und Ablauf je Empfänger und ordnet Asset und BPN eindeutig zu.
 - **IDs:** Asset `drive-d-{deliveryId}`, Contract Definition `drive-cd-{deliveryId}`, Access-Policy `drive-ap-{BPN}` (je Partner wiederverwendet), Contract-Policy `drive-cp-{profil}-v{n}` (unveränderlich, neue Versionen statt Änderungen).
-- **Namensraum** der eigenen Properties: `https://ns.swms-cloud.com/drive/v1/` (noch zu bestätigen).
+- **Namensraum** der eigenen Properties: `https://ns.swms-cloud.com/drive/v1/`.
 - **Öffentliche Asset-Properties:** `name`, `dct:title`, `drive:kind=delivery`, `drive:schemaVersion`, `drive:recipientBpn`, `drive:senderBpn`, `drive:senderOrganization`, `drive:expiresAt`, `drive:itemCount`, `drive:totalSize` und `drive:manifest` (JSON mit Name, Größe, SHA-256 und MIME je Datei, ASCII-escaped).
 - **Private Properties:** `drive:deliveryId`, `drive:instanceId`.
 - **dataAddress:**
@@ -195,8 +195,8 @@ Ein laufender Download wird durch das Retirement nicht abgebrochen (S7). Bei seg
 | Phase | Inhalt | Abnahme |
 |---|---|---|
 | 0 Konzept & Spike | Konzept, Spike, Repo-Skelett | **erledigt**, siehe `docs/spike-ergebnisse.md` |
-| 1 Drive intern | OIDC, Bereiche/Ordner, Chunk-Upload, Download, Versionen, Papierkorb, ClamAV beim Upload, Helm/CI, Deployment Alice und Bob | mehrere Nutzer parallel; 2-GB-Upload; Neustart ohne Datenverlust |
-| 2 Teilen (MVP) | Partner, Freigabe-Dialog, Outbox/EDC-Anlage, Content-Endpunkt, Abrufprotokoll, Widerruf, Ablauf; Eingang mit Polling, Annahme, segmentiertem Download, Prüfung, Ablage; Audit; Reconciliation | E2E-Testplan grün (Abschnitt 12) |
+| 1 Drive intern | OIDC, Bereiche/Ordner, Chunk-Upload, Download, Versionen, Papierkorb, ClamAV beim Upload, Helm/CI, Deployment Alice und Bob | **abgenommen** 12.10.2026 (`e2e/phase1_acceptance.py`): mehrere Nutzer parallel, 2-GB-Datei, Neustart ohne Datenverlust |
+| 2 Teilen (MVP) | Partner, Freigabe-Dialog, Outbox/EDC-Anlage, Content-Endpunkt, Abrufprotokoll, Widerruf, Ablauf; Eingang mit Polling, Annahme, segmentiertem Download, Prüfung, Ablage; Audit; Reconciliation | **umgesetzt**; E2E-Testplan mit `e2e/phase2_acceptance.py` (Abschnitt 12) |
 | 3 Ausbau | Benachrichtigung über ein Eingangs-Asset, E-Mail, Ordner-Freigaben, neue Versionen geteilter Dateien, Vier-Augen-Freigabe, Policy-Profile, Vorschau, optional Auto-Annahme | je Feature |
 | 4 Härtung | S3-Adapter und mehrere Repliken, Backups, OpenTelemetry, Last- und Pentest, Profil 0.13, Kunden-Doku | Restore-Test, Update ohne Ausfall |
 
@@ -240,11 +240,21 @@ Ein laufender Download wird durch das Retirement nicht abgebrochen (S7). Bei seg
 | Offer aus dem Katalog weiterreichen | Policy aus dem Austauschprofil, nur Offer-ID aus dem Katalog | Spike S5: kompakte Offers scheitern an der Policy-Gleichheit |
 | Contract-Policy CX (FrameworkAgreement + UsagePurpose) | Profil „membership“ als Standard | Spike S1 |
 | Download in einem Stück | segmentiert über `offset`/`length` | Spike S6/S7: fortsetzbar, Widerruf wirkt schneller |
+| BDRS-Import der Partner (offen) | Partner pflegt die Verwaltung mit BPN und DSP-Adresse; DID und Protokoll löst der eigene Connector auf (`dspversionparams`) | Der Connector fragt das BDRS selbst; die Drive braucht kein STS-Secret. Die DID-Dokumente im windx-Dataspace tragen keinen DataService-Eintrag, daher bleibt die DSP-Adresse eine Angabe der Verwaltung. |
+| Dateien bis 5 GB | mit Virenscan bis 2047 MiB | ClamAV prüft höchstens 2 GiB − 1 Byte; ungeprüfte Dateien bleiben gesperrt |
+| 2 Abrufe je Anbieter, 4 insgesamt | der Empfänger übernimmt Angebote nacheinander | einfach und schont die Dataplane des Anbieters; Parallelität folgt bei Bedarf |
+| Asset bleibt als Grabstein | ohne Agreements wird das Asset gelöscht, mit Agreements bleibt es ohne Contract Definition stehen | hält den Connector sauber, wo es geht (Spike S9) |
+| Entität KnownAgreement | Agreements 30 s im Speicher zwischengespeichert | ein Widerruf ändert zuerst den Zustand der Zustellung und wirkt dadurch sofort |
+| Audit mit Hash-Kette | Audit nur anfügen, ohne Hash-Kette | folgt mit der Härtung (Phase 4) |
+| Freigabe aus jedem Bereich | aus Team-Bereichen nur, wenn die Verwaltung externes Teilen erlaubt; aus „Meine Dateien“ immer | Team-Inhalte gehören dem Team, nicht dem Einzelnen |
 
 ## 14. Offene Entscheidungen
 
 - Zeitpunkt für das CX-Usage-Profil (setzt passende DataExchangeGovernance-Credentials bei allen Teilnehmern voraus).
-- Namensraum-IRI des Austauschprofils.
-- Maximale Dateigröße und Standard-Ablauf im MVP (Vorschlag: 5 GB, 30 Tage, höchstens 90).
 - Aufbewahrungsfristen für Audit und empfangene Dateien.
-- BDRS-Import der Partner ja oder nein (davon hängt ab, ob die Drive das STS-Client-Secret braucht).
+- Umgang mit Dateien über der Grenze des Virenscans (heute abgelehnt; denkbar: Freigabe ungeprüfter Dateien durch die Verwaltung).
+
+Entschieden in Phase 2:
+- Namensraum `https://ns.swms-cloud.com/drive/v1/`.
+- Ablauf standardmäßig 30 Tage, höchstens 90; Dateigröße mit Virenscan bis 2047 MiB.
+- Kein BDRS-Import in der Drive: die DID löst der Connector auf (siehe Abschnitt 13).

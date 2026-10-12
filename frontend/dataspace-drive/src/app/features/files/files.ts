@@ -16,7 +16,6 @@ import {
   FileManagerPredefinedContextMenuItem,
   FileManagerPredefinedToolbarItem,
   SelectionChangedEvent,
-  ToolbarItemClickEvent,
 } from 'devextreme/ui/file_manager';
 
 import { AuthService } from '../../core/auth.service';
@@ -78,7 +77,12 @@ export class Files {
   readonly toolbar = computed(() => {
     const items: (dxFileManagerToolbarItem | FileManagerPredefinedToolbarItem)[] = ['download', 'separator', 'move', 'rename', 'separator', 'delete'];
     if (this.canShare() && this.filesSelected()) {
-      items.push({ name: 'share', text: 'An Partner freigeben', icon: 'share', location: 'before', showText: 'always' });
+      items.push({
+        name: 'share',
+        widget: 'dxButton',
+        location: 'before',
+        options: { text: 'An Partner freigeben', icon: 'share', stylingMode: 'text', onClick: () => this.openShare() },
+      });
     }
     items.push('clearSelection', { name: 'separator', location: 'after' }, 'refresh');
     return { fileSelectionItems: items };
@@ -164,10 +168,13 @@ export class Files {
     this.filesSelected.set(items.length > 0 && items.every((i) => !i.isDirectory));
   }
 
-  onMenuItemClick(e: ContextMenuItemClickEvent | ToolbarItemClickEvent): void {
-    if ((e.itemData as { name?: string } | undefined)?.name !== 'share') {
-      return;
+  onMenuItemClick(e: ContextMenuItemClickEvent): void {
+    if ((e.itemData as { name?: string } | undefined)?.name === 'share') {
+      this.openShare();
     }
+  }
+
+  private openShare(): void {
     const selected = this.fileManager()?.instance.getSelectedItems() ?? [];
     const files = selected.filter((i) => !i.isDirectory).map((i) => ({ id: this.itemId(i), name: i.name }));
     if (files.length === 0 || files.length !== selected.length) {
