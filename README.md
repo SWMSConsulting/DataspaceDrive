@@ -6,7 +6,7 @@ Dateien sicher über den Dataspace an andere Unternehmen freigeben: eine Web-Anw
 - Jede Freigabe wird ein EDC-Angebot, das nur der adressierte Partner sieht.
 - Der Partner übernimmt die Datei nach Annahme in seine eigene DataspaceDrive.
 
-**Stand:** Phase 1 („Drive intern“): OIDC-Anmeldung, persönliche und Team-Bereiche, Chunk-Upload, Versionen, Papierkorb, Suche und Virenscan. Phase 2 (Teilen über den Dataspace) folgt. Details in [docs/konzept-dataspace-drive-de.md](docs/konzept-dataspace-drive-de.md) und [docs/spike-ergebnisse.md](docs/spike-ergebnisse.md).
+**Stand:** Phase 1 („Drive intern“) ist abgenommen: OIDC-Anmeldung, persönliche und Team-Bereiche, Chunk-Upload, Versionen, Papierkorb, Suche und Virenscan, ausgerollt bei Alice und Bob im windx-Cluster. Die Abnahme vom 12.10.2026 mit [e2e/phase1_acceptance.py](e2e/README.md) umfasste parallele Sitzungen, eine 2-GB-Datei und einen Neustart ohne Datenverlust. Phase 2 (Teilen über den Dataspace) folgt. Details in [docs/konzept-dataspace-drive-de.md](docs/konzept-dataspace-drive-de.md) und [docs/spike-ergebnisse.md](docs/spike-ergebnisse.md).
 
 ## Aufbau
 
