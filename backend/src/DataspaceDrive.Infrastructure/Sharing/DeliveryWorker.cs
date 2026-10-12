@@ -103,7 +103,7 @@ public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clo
             task.CompletedAt = now;
             task.LastError = null;
         }
-        catch (Exception ex) when (ex is EdcException or HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        catch (Exception ex) when (ex is EdcException or HttpRequestException or OperationCanceledException && !ct.IsCancellationRequested)
         {
             task.Attempts++;
             task.LastError = Truncate(ex.Message);
@@ -145,7 +145,7 @@ public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clo
             return await PartnerNotifications.EnsureInboxAsync(scope.ServiceProvider, db, scope.ServiceProvider.GetRequiredService<EdcConnection>().Client,
                 clock.GetUtcNow().UtcDateTime, ct);
         }
-        catch (Exception ex) when (ex is EdcException or HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        catch (Exception ex) when (ex is EdcException or HttpRequestException or OperationCanceledException && !ct.IsCancellationRequested)
         {
             logger.LogWarning("Eingangs-Asset konnte nicht angelegt werden: {Error}", ex.Message);
             return false;

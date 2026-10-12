@@ -21,6 +21,8 @@ public static class PartnerNotifications
 {
     private const string AppliedKey = "inbox.applied";
     private static readonly TimeSpan PollStep = TimeSpan.FromSeconds(2);
+    // Läuft in der Schleife der Zustellungen: ein hängender Partner darf die Anlage neuer Zustellungen nicht aufhalten.
+    private static readonly TimeSpan StepTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Ein Schritt der Benachrichtigung; liefert den Zeitpunkt für den nächsten Schritt (Verhandlung läuft) oder null,
@@ -32,12 +34,15 @@ public static class PartnerNotifications
         var partner = await db.Partners.FirstAsync(p => p.Id == delivery.PartnerId, ct);
         if (!partner.IsResolved || partner.Blocked || delivery.State != DeliveryState.Active)
             return null;
+        using var step = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        step.CancelAfter(StepTimeout);
+        var remote = step.Token;
         if (partner.NotifyTransferProcessId is null)
         {
             if (partner.NotifyNegotiationId is null)
             {
                 var catalog = await edc.RequestCatalogAsync(partner.ProtocolAddress!, partner.Did!, partner.Protocol!, 0, 10,
-                    DriveExchange.InboxAssetFilters(), ct);
+                    DriveExchange.InboxAssetFilters(), remote);
                 var inbox = JsonLd.Objects(JsonLd.Get(catalog, "dataset")).Select(DriveExchange.ParseInboxDataset).FirstOrDefault(x => x is not null);
                 if (inbox is not { } found)
                 {
@@ -46,10 +51,10 @@ public static class PartnerNotifications
                 }
                 partner.NotifyAssetId = found.AssetId;
                 partner.NotifyNegotiationId = await edc.StartEdrNegotiationAsync(EdcRequests.ContractRequest(found.OfferId, partner.Did!, found.AssetId,
-                    partner.ProtocolAddress!, partner.Protocol!, ExchangeProfile.MembershipContractPermissions()), ct);
+                    partner.ProtocolAddress!, partner.Protocol!, ExchangeProfile.MembershipContractPermissions()), remote);
                 return now + PollStep;
             }
-            var negotiation = await edc.GetNegotiationAsync(partner.NotifyNegotiationId, ct);
+            var negotiation = await edc.GetNegotiationAsync(partner.NotifyNegotiationId, remote);
             if (negotiation.IsTerminated)
             {
                 partner.NotifyNegotiationId = null;
@@ -58,13 +63,13 @@ public static class PartnerNotifications
             }
             if (!negotiation.IsFinalized)
                 return now + PollStep;
-            var transferProcessId = await edc.FindEdrTransferProcessAsync(partner.NotifyNegotiationId, ct);
+            var transferProcessId = await edc.FindEdrTransferProcessAsync(partner.NotifyNegotiationId, remote);
             if (transferProcessId is null)
                 return now + PollStep;
             partner.NotifyTransferProcessId = transferProcessId;
         }
 
-        var address = await edc.GetEdrDataAddressAsync(partner.NotifyTransferProcessId, ct);
+        var address = await edc.GetEdrDataAddressAsync(partner.NotifyTransferProcessId, remote);
         if (address is null)
         {
             Reset(partner, "Kein EDR für das Eingangs-Asset; neue Verhandlung.");
@@ -74,7 +79,7 @@ public static class PartnerNotifications
         using var request = new HttpRequestMessage(HttpMethod.Get,
             $"{address.Endpoint.TrimEnd('/')}?event=delivery&asset={Uri.EscapeDataString(DriveExchange.AssetId(delivery.ExternalId))}");
         request.Headers.TryAddWithoutValidation("Authorization", address.Authorization);
-        using var response = await http.SendAsync(request, ct);
+        using var response = await http.SendAsync(request, remote);
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound or HttpStatusCode.Gone)
         {
             // Vertrag zurückgezogen oder Asset geändert: beim nächsten Schritt neu verhandeln.
