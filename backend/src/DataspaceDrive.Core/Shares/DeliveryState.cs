@@ -23,7 +23,8 @@ public static class DeliveryLifecycle
 {
     public static readonly Transitions<DeliveryState> Transitions = new Transitions<DeliveryState>()
         .Allow(DeliveryState.Requested, DeliveryState.Provisioning, DeliveryState.Rejected)
-        .Allow(DeliveryState.Provisioning, DeliveryState.Active, DeliveryState.ProvisioningFailed)
+        // Widerruf während der Anlage: der spätere End-Auftrag räumt angelegte EDC-Objekte wieder ab.
+        .Allow(DeliveryState.Provisioning, DeliveryState.Active, DeliveryState.ProvisioningFailed, DeliveryState.Revoking)
         .Allow(DeliveryState.ProvisioningFailed, DeliveryState.Provisioning, DeliveryState.Revoking)
         .Allow(DeliveryState.Active, DeliveryState.Revoking, DeliveryState.Expiring)
         .Allow(DeliveryState.Revoking, DeliveryState.Revoked)

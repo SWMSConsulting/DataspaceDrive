@@ -181,6 +181,16 @@ public sealed class FakeDeliveryDirectory : IDeliveryDirectory
 
     public Task<DeliveryItem?> FindItemAsync(string deliveryId, string? itemId, CancellationToken ct) =>
         Task.FromResult(Items.GetValueOrDefault(deliveryId));
+
+    public List<(string DeliveryId, DeliveryAccessDecision Decision, long? Offset)> Retrievals { get; } = [];
+
+    public Task RecordRetrievalAsync(string deliveryId, DeliveryAccessDecision decision, string? consumerBpn, string? agreementId, string? itemKey,
+        long? offset, long? length, CancellationToken ct)
+    {
+        lock (Retrievals)
+            Retrievals.Add((deliveryId, decision, offset));
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Scanner für Tests: Inhalt mit „EICAR“ gilt als infiziert, alles andere als sauber.</summary>

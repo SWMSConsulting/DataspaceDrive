@@ -33,6 +33,9 @@ public sealed class DeliveryTokenService
         _currentVersion = currentVersion;
     }
 
+    /// <summary>Version, mit der <see cref="Create(string)"/> neue Tokens erzeugt.</summary>
+    public int CurrentVersion => _currentVersion;
+
     public string Create(string deliveryId) => Create(deliveryId, _currentVersion);
 
     public bool Verify(string deliveryId, string? token)

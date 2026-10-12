@@ -71,6 +71,19 @@ public sealed class EdcManagementClient(HttpClient http, EdcVersionProfile profi
         return true;
     }
 
+    /// <summary>
+    /// Löscht ein Asset. Mit Agreements verweigert der EDC das (409); dann bleibt es als Grabstein ohne Contract
+    /// Definition stehen und das Ergebnis ist false.
+    /// </summary>
+    public async Task<bool> DeleteAssetAsync(string assetId, CancellationToken ct)
+    {
+        using var response = await http.DeleteAsync($"v3/assets/{Uri.EscapeDataString(assetId)}", ct);
+        if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.NotFound)
+            return false;
+        await EnsureSuccessAsync(response, "Asset löschen", ct);
+        return true;
+    }
+
     public async Task<ContractAgreementInfo?> GetAgreementAsync(string agreementId, CancellationToken ct)
     {
         using var response = await http.GetAsync($"v3/contractagreements/{Uri.EscapeDataString(agreementId)}", ct);

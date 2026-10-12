@@ -2,6 +2,7 @@ using DataspaceDrive.Core;
 using DataspaceDrive.Core.Access;
 using DataspaceDrive.Core.Audit;
 using DataspaceDrive.Core.Files;
+using DataspaceDrive.Core.Shares;
 using DataspaceDrive.Core.Storage;
 using DataspaceDrive.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,8 @@ public sealed class FileService(
     public async Task<IReadOnlyList<SpaceInfo>> GetSpacesAsync(DrivePrincipal principal, CancellationToken ct)
     {
         var spaces = await access.AccessibleSpacesAsync(principal, Permission.Read, ct);
-        return spaces.Select(s => new SpaceInfo(s.Space.Id, s.Space.Name, s.Space.Kind, s.Space.RootFolderId, s.Permission)).ToList();
+        return spaces.Select(s => new SpaceInfo(s.Space.Id, s.Space.Name, s.Space.Kind, s.Space.RootFolderId, s.Permission,
+            s.Space.Kind == SpaceKind.Personal || s.Space.ExternalSharingAllowed)).ToList();
     }
 
     public async Task<FolderListing> GetChildrenAsync(DrivePrincipal principal, Guid folderId, CancellationToken ct)
@@ -239,6 +241,14 @@ public sealed class FileService(
         var files = await db.Files.Where(f => f.DeletedRootId == itemId).ToListAsync(ct);
         var fileIds = files.Select(f => f.Id).ToList();
         var versions = await db.FileVersions.Where(v => fileIds.Contains(v.FileEntryId)).ToListAsync(ct);
+        var versionIds = versions.Select(v => v.Id).ToList();
+        var shared = await (from i in db.ShareItems
+                            join d in db.Deliveries on i.ShareId equals d.ShareId
+                            where i.FileVersionId != null && versionIds.Contains(i.FileVersionId.Value)
+                                  && d.State != DeliveryState.Revoked && d.State != DeliveryState.Expired && d.State != DeliveryState.Rejected
+                            select i.Name).FirstOrDefaultAsync(ct);
+        if (shared is not null)
+            throw new ConflictException($"„{shared}“ ist noch an Partner freigegeben; bitte zuerst die Freigabe widerrufen.");
 
         db.FileVersions.RemoveRange(versions);
         db.Files.RemoveRange(files);

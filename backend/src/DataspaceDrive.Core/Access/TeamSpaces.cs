@@ -10,12 +10,14 @@ public sealed record TeamSpaceInfo(
     DateTime CreatedAt,
     IReadOnlyList<AclEntryInfo> Acl,
     int FileCount,
-    long StoredBytes);
+    long StoredBytes,
+    bool ExternalSharingAllowed);
 
 /// <summary>Für Nutzer ist <see cref="PrincipalKey"/> die Drive-Nutzer-ID, für Rollen und Gruppen der Name aus dem IdP.</summary>
 public sealed record AclEntryRequest(PrincipalType PrincipalType, string PrincipalKey, Permission Permission);
 
-public sealed record TeamSpaceRequest(string Name, IReadOnlyList<AclEntryRequest>? Acl);
+/// <param name="ExternalSharingAllowed">Mitglieder mit der Rolle drive-external-share dürfen Dateien dieses Bereichs an Partner freigeben.</param>
+public sealed record TeamSpaceRequest(string Name, IReadOnlyList<AclEntryRequest>? Acl, bool ExternalSharingAllowed = false);
 
 /// <summary>Nutzer, die sich schon einmal angemeldet haben und daher in ACLs auswählbar sind.</summary>
 public sealed record KnownUser(Guid Id, string DisplayName, string? Email, DateTime LastLoginAt, bool IsActive);

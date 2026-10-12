@@ -36,7 +36,7 @@ builder.Services.AddSingleton(ports);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(sp => DeliveryTokenConfiguration.Create(
     builder.Configuration.GetSection("Drive:DeliveryTokens"), builder.Environment, sp.GetRequiredService<ILogger<Program>>()));
-builder.Services.AddSingleton<ContentServices>();
+builder.Services.AddScoped<ContentServices>();
 builder.Services.AddDriveInfrastructure(builder.Configuration);
 builder.Services.AddDriveAuthentication();
 builder.Services.AddDriveAntiforgery();
@@ -83,6 +83,7 @@ app.MapGet("/api/config", (IConfiguration cfg, IUploadService uploads) => Result
 app.MapAuthEndpoints(app.Configuration);
 app.MapFileEndpoints();
 app.MapAdminEndpoints();
+app.MapSharingEndpoints();
 app.MapContentEndpoints();
 app.MapFallbackToFile("index.html");
 

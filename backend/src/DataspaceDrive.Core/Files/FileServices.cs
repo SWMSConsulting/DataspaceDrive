@@ -3,7 +3,8 @@ using DataspaceDrive.Core.Users;
 
 namespace DataspaceDrive.Core.Files;
 
-public sealed record SpaceInfo(Guid Id, string Name, SpaceKind Kind, Guid RootFolderId, Permission Permission);
+/// <summary><paramref name="ExternalSharingAllowed"/>: aus diesem Bereich darf an Partner freigegeben werden.</summary>
+public sealed record SpaceInfo(Guid Id, string Name, SpaceKind Kind, Guid RootFolderId, Permission Permission, bool ExternalSharingAllowed);
 
 public sealed record PathSegment(Guid Id, string Name);
 

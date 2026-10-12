@@ -27,7 +27,7 @@ public static class IncomingOfferLifecycle
             IncomingOfferState.Withdrawn, IncomingOfferState.Expired)
         // Taucht ein zurückgezogenes Angebot wieder im Katalog auf, ist es wieder neu.
         .Allow(IncomingOfferState.Withdrawn, IncomingOfferState.New)
-        .Allow(IncomingOfferState.Accepted, IncomingOfferState.Negotiating)
+        .Allow(IncomingOfferState.Accepted, IncomingOfferState.Negotiating, IncomingOfferState.Failed)
         .Allow(IncomingOfferState.Negotiating, IncomingOfferState.AwaitingTransfer, IncomingOfferState.Failed,
             IncomingOfferState.Withdrawn)
         .Allow(IncomingOfferState.AwaitingTransfer, IncomingOfferState.Downloading, IncomingOfferState.Failed)

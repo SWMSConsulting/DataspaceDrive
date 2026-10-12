@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DataspaceDrive.Core\DataspaceDrive.Core.csproj" />
+    <ProjectReference Include="..\Swms.Edc.Client\Swms.Edc.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>

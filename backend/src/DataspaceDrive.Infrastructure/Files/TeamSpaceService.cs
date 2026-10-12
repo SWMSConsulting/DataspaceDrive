@@ -27,7 +27,11 @@ public sealed class TeamSpaceService(DriveDbContext db, TimeProvider clock) : IT
         var name = await ValidateNameAsync(request.Name, null, ct);
         var acl = await ValidateAclAsync(request.Acl, ct);
         var now = Now;
-        var space = new Space { Id = Guid.NewGuid(), Kind = SpaceKind.Team, Name = name, RootFolderId = Guid.NewGuid(), CreatedAt = now };
+        var space = new Space
+        {
+            Id = Guid.NewGuid(), Kind = SpaceKind.Team, Name = name, RootFolderId = Guid.NewGuid(), CreatedAt = now,
+            ExternalSharingAllowed = request.ExternalSharingAllowed,
+        };
         db.Spaces.Add(space);
         db.Folders.Add(new Folder
         {
@@ -35,7 +39,7 @@ public sealed class TeamSpaceService(DriveDbContext db, TimeProvider clock) : IT
             CreatedBy = admin.UserId, ModifiedAt = now,
         });
         db.AclEntries.AddRange(acl.Select(a => ToEntity(space.Id, a)));
-        Audit(admin, "space.created", space.Id, Describe(name, acl));
+        Audit(admin, "space.created", space.Id, Describe(name, acl, request.ExternalSharingAllowed));
         await db.SaveChangesAsync(ct);
         return (await ToInfosAsync([space], ct))[0];
     }
@@ -54,9 +58,10 @@ public sealed class TeamSpaceService(DriveDbContext db, TimeProvider clock) : IT
             root.NormalizedName = ItemName.Normalize(name);
             root.ModifiedAt = Now;
         }
+        space.ExternalSharingAllowed = request.ExternalSharingAllowed;
         db.AclEntries.RemoveRange(await db.AclEntries.Where(a => a.SpaceId == space.Id).ToListAsync(ct));
         db.AclEntries.AddRange(acl.Select(a => ToEntity(space.Id, a)));
-        Audit(admin, "space.updated", space.Id, Describe(name, acl));
+        Audit(admin, "space.updated", space.Id, Describe(name, acl, request.ExternalSharingAllowed));
         await db.SaveChangesAsync(ct);
         return (await ToInfosAsync([space], ct))[0];
     }
@@ -159,7 +164,8 @@ public sealed class TeamSpaceService(DriveDbContext db, TimeProvider clock) : IT
                         a.PrincipalType == PrincipalType.User ? userNames.GetValueOrDefault(a.PrincipalKey, "Unbekannter Nutzer") : a.PrincipalKey))
                     .ToList(),
                 fileCounts.GetValueOrDefault(s.Id),
-                storedBytes.GetValueOrDefault(s.Id)))
+                storedBytes.GetValueOrDefault(s.Id),
+                s.ExternalSharingAllowed))
             .ToList();
     }
 
@@ -169,8 +175,9 @@ public sealed class TeamSpaceService(DriveDbContext db, TimeProvider clock) : IT
         Permission = entry.Permission,
     };
 
-    private static string Describe(string name, IReadOnlyList<AclEntryRequest> acl) =>
-        $"{name}: " + (acl.Count == 0 ? "keine Berechtigungen" : string.Join(", ", acl.Select(a => $"{a.PrincipalType} {a.PrincipalKey}={a.Permission}")));
+    private static string Describe(string name, IReadOnlyList<AclEntryRequest> acl, bool external) =>
+        $"{name}: " + (acl.Count == 0 ? "keine Berechtigungen" : string.Join(", ", acl.Select(a => $"{a.PrincipalType} {a.PrincipalKey}={a.Permission}")))
+        + (external ? "; externes Teilen erlaubt" : "");
 
     private void Audit(DrivePrincipal principal, string action, Guid spaceId, string details) =>
         db.AuditEvents.Add(new AuditEvent
