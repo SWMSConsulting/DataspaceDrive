@@ -1,32 +1,34 @@
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 16px 0 8px;
+:host {
+  display: block;
 }
 
-.section-title {
+.findings {
+  margin-top: 14px;
+}
+
+.planned-list {
   margin: 0;
-  font-size: 17px;
-  font-weight: 600;
+  padding-left: 20px;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.external-check {
+  margin-top: 16px;
 }
 
 .editor-section {
-  margin-top: 20px;
-}
-
-.field-label {
-  display: block;
-  margin-bottom: 4px;
-  color: #616161;
-  font-size: 13px;
+  margin: 24px 0 0;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .acl-add {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin: 12px 0;
 }
 
 .acl-type {
@@ -38,25 +40,11 @@
 }
 
 .acl-permission {
-  width: 140px;
+  width: 150px;
 }
 
-.planned-title {
-  margin-top: 32px;
-}
-
-.planned-list {
-  color: #616161;
-}
-
-.external-check {
-  margin-top: 12px;
-}
-
-.edc-header {
-  margin-top: 32px;
-}
-
-.edc-summary {
-  margin: 0 0 12px;
+.acl-list {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }

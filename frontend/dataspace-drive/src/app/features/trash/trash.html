@@ -1,17 +1,28 @@
-<div class="page-header">
-  <h1 class="page-title">Papierkorb</h1>
-  <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
-</div>
-<p class="hint">Gelöschte Dateien und Ordner. Beim Wiederherstellen kommen sie an ihren alten Ort zurück, sonst in den Bereich.</p>
-
-<dx-data-grid [dataSource]="items()" keyExpr="id" [showBorders]="true" noDataText="Der Papierkorb ist leer.">
-  <dxi-column dataField="name" caption="Name"></dxi-column>
-  <dxi-column caption="Typ" [calculateCellValue]="formatType" [width]="90"></dxi-column>
-  <dxi-column dataField="originalPath" caption="Ursprünglicher Ort"></dxi-column>
-  <dxi-column dataField="deletedAt" caption="Gelöscht am" dataType="datetime" sortOrder="desc" [width]="170"></dxi-column>
-  <dxi-column caption="" [width]="260" cellTemplate="actions"></dxi-column>
-  <div *dxTemplate="let cell of 'actions'">
-    <dx-button text="Wiederherstellen" stylingMode="text" (onClick)="restore(cell.data)"></dx-button>
-    <dx-button text="Endgültig löschen" stylingMode="text" type="danger" (onClick)="purge(cell.data)"></dx-button>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Papierkorb</h1>
+    <p class="page-subtitle">Gelöschte Dateien und Ordner. Beim Wiederherstellen kommen sie an ihren alten Ort zurück, sonst in den Bereich.</p>
   </div>
-</dx-data-grid>
+  <div class="page-actions">
+    <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+  </div>
+</header>
+
+<section class="card">
+  <dx-data-grid [dataSource]="items()" keyExpr="id" [wordWrapEnabled]="true" [columnHidingEnabled]="true" noDataText="Der Papierkorb ist leer.">
+    <dxi-column dataField="name" caption="Name" [minWidth]="200" cellTemplate="nameCell"></dxi-column>
+    <dxi-column dataField="originalPath" caption="Ursprünglicher Ort" [hidingPriority]="0"></dxi-column>
+    <dxi-column dataField="deletedAt" caption="Gelöscht am" dataType="datetime" sortOrder="desc" [width]="170" [hidingPriority]="1"></dxi-column>
+    <dxi-column caption="" [width]="270" cellTemplate="actions"></dxi-column>
+    <div *dxTemplate="let cell of 'nameCell'">
+      <div class="cell-primary">{{ cell.value }}</div>
+      <div class="cell-secondary">{{ formatType(cell.data) }}</div>
+    </div>
+    <div *dxTemplate="let cell of 'actions'">
+      <div class="row-actions">
+        <dx-button text="Endgültig löschen" stylingMode="text" type="danger" (onClick)="purge(cell.data)"></dx-button>
+        <dx-button text="Wiederherstellen" (onClick)="restore(cell.data)"></dx-button>
+      </div>
+    </div>
+  </dx-data-grid>
+</section>

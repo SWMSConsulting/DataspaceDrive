@@ -1,0 +1,6 @@
+// Das Theme folgt der Darstellung des Systems; hell und dunkel sind getrennt übersetzt (Sass konfiguriert ein Modul nur einmal).
+@use "sass:meta";
+
+@media (prefers-color-scheme: light) {
+  @include meta.load-css("dx-light");
+}

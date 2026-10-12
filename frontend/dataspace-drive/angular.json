@@ -55,7 +55,8 @@
               }
             ],
             "styles": [
-              "node_modules/devextreme/dist/css/dx.light.css",
+              "src/themes/theme-light.scss",
+              "src/themes/theme-dark.scss",
               "src/styles.scss"
             ],
             "allowedCommonJsDependencies": [

@@ -1,0 +1,29 @@
+// DevExtreme Fluent mit den Farben der Drive, dunkle Darstellung. Die Werte entsprechen den Tokens in styles.scss (dunkel).
+@use "devextreme/scss/widgets/fluent/colors" with (
+  $color: "blue",
+  $mode: "dark",
+  $base-accent: #0a84ff,
+  $base-link-color: #2997ff,
+  $base-text-color: #f5f5f7,
+  $base-label-color: #a1a1a6,
+  $base-icon-color: #d1d1d6,
+  $base-typography-bg: #000000,
+  $base-bg: #1c1c1e,
+  $base-border-color: #3a3a3c,
+  $base-separator-color: #38383a,
+  $base-success: #30d158,
+  $base-warning: #ff9f0a,
+  $base-danger: #ff453a,
+  $base-font-family: (-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif)
+);
+@use "devextreme/scss/widgets/fluent/sizes" with ($size: "default", $base-border-radius: 8px);
+@use "devextreme/scss/widgets/fluent/typography";
+@use "devextreme/scss/widgets/fluent/icons";
+@use "devextreme/scss/widgets/fluent/widget";
+@use "devextreme/scss/widgets/fluent/card";
+@use "devextreme/scss/widgets/fluent/fieldset";
+@use "devextreme/scss/widgets/fluent/common";
+@use "devextreme/scss/widgets/base/resizable";
+@use "devextreme/scss/widgets/base/draggable";
+@use "devextreme/scss/widgets/base/ui";
+@use "devextreme/scss/widgets/fluent";

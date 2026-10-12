@@ -2,17 +2,21 @@
   display: block;
 }
 
-.message {
-  margin: 0 0 8px;
-  font-style: italic;
-}
-
 .items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin: 0;
-  padding-left: 20px;
-}
+  padding: 0;
+  list-style: none;
 
-.meta {
-  margin: 0 0 8px;
-  color: #616161;
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 6px 6px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
 }

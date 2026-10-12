@@ -1,27 +1,63 @@
-<dx-toolbar class="header-toolbar">
-  <dxi-item location="before" widget="dxButton" [options]="menuButtonOptions"></dxi-item>
-  <dxi-item location="before" cssClass="app-title" text="DataspaceDrive"></dxi-item>
-  <dxi-item location="after" locateInMenu="never" cssClass="participant" [text]="participant()"></dxi-item>
-  <dxi-item location="after" locateInMenu="never" cssClass="user-name" [text]="auth.me()?.name ?? ''"></dxi-item>
-  <dxi-item location="after" widget="dxButton" [options]="logoutButtonOptions"></dxi-item>
-</dx-toolbar>
-
-<dx-drawer class="app-drawer" openedStateMode="shrink" position="left" revealMode="slide" [opened]="drawerOpen()">
-  <dx-list
-    *dxTemplate="let dummy of 'panel'"
-    class="nav-list"
-    [dataSource]="navItems()"
-    [width]="220"
-    selectionMode="single"
-    (onItemClick)="onNavItemClick($event)"
-  >
-    <div *dxTemplate="let item of 'item'" class="nav-item">
-      <i class="dx-icon dx-icon-{{ item.icon }}"></i>
-      <span>{{ item.text }}</span>
+<div class="shell" [class.nav-open]="navOpen()">
+  <aside class="sidebar" aria-label="Hauptnavigation">
+    <div class="brand">
+      <img class="brand-mark" src="brand.svg" alt="" width="34" height="34" />
+      <div class="brand-text">
+        <span class="brand-name">DataspaceDrive</span>
+        <span class="brand-org">{{ organization() }}</span>
+      </div>
+      <button class="icon-button close-nav" type="button" aria-label="Navigation schließen" (click)="navOpen.set(false)">
+        <app-icon name="close" />
+      </button>
     </div>
-  </dx-list>
 
-  <div class="content">
-    <router-outlet />
+    <nav class="nav">
+      @for (group of groups(); track group.title) {
+        <div class="nav-group">
+          <div class="nav-group-title">{{ group.title }}</div>
+          @for (item of group.items; track item.path) {
+            <a class="nav-link" [routerLink]="item.path" routerLinkActive="active" ariaCurrentWhenActive="page">
+              <app-icon [name]="item.icon" />
+              <span class="nav-text">{{ item.text }}</span>
+              @if (item.badge > 0) {
+                <span class="badge" [attr.aria-label]="item.badge + ' offen'">{{ item.badge }}</span>
+              }
+            </a>
+          }
+        </div>
+      }
+    </nav>
+
+    <div class="sidebar-footer">
+      <a class="nav-link" routerLink="/settings" routerLinkActive="active" ariaCurrentWhenActive="page">
+        <app-icon name="settings" />
+        <span class="nav-text">Einstellungen</span>
+      </a>
+      <div class="user">
+        <span class="avatar" aria-hidden="true">{{ initials() }}</span>
+        <div class="user-text">
+          <span class="user-name">{{ auth.me()?.name }}</span>
+          <span class="user-detail">{{ userDetail() }}</span>
+        </div>
+        <button class="icon-button" type="button" title="Abmelden" aria-label="Abmelden" (click)="auth.logout()">
+          <app-icon name="log-out" [size]="18" />
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="scrim" aria-hidden="true" (click)="navOpen.set(false)"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-button" type="button" aria-label="Navigation öffnen" (click)="navOpen.set(true)">
+        <app-icon name="menu" />
+      </button>
+      <img src="brand.svg" alt="" width="26" height="26" />
+      <span class="topbar-title">DataspaceDrive</span>
+    </header>
+    <main class="content">
+      <router-outlet />
+    </main>
   </div>
-</dx-drawer>
+</div>

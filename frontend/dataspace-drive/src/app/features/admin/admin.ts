@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { DxButtonModule } from 'devextreme-angular/ui/button';
 import { DxCheckBoxModule } from 'devextreme-angular/ui/check-box';
+import { DxSwitchModule } from 'devextreme-angular/ui/switch';
 import { DxDataGridModule } from 'devextreme-angular/ui/data-grid';
 import { DxPopupModule } from 'devextreme-angular/ui/popup';
 import { DxSelectBoxModule } from 'devextreme-angular/ui/select-box';
@@ -22,13 +23,14 @@ import {
 } from '../../core/admin-api.service';
 import { errorText } from '../../core/drive-api.service';
 import { formatBytes } from '../../shared/format';
+import '../../core/devextreme-defaults';
 
 const typeLabels: Record<PrincipalType, string> = { Role: 'Rolle', Group: 'Gruppe', User: 'Nutzer' };
 const permissionLabels: Record<TeamPermission, string> = { Read: 'Lesen', Write: 'Schreiben' };
 
 @Component({
   selector: 'app-admin',
-  imports: [DatePipe, DxDataGridModule, DxButtonModule, DxCheckBoxModule, DxPopupModule, DxSelectBoxModule, DxTextBoxModule],
+  imports: [DatePipe, DxDataGridModule, DxButtonModule, DxCheckBoxModule, DxSwitchModule, DxPopupModule, DxSelectBoxModule, DxTextBoxModule],
   templateUrl: './admin.html',
   styleUrl: './admin.scss',
 })
@@ -72,7 +74,6 @@ export class Admin {
   readonly roleSuggestions = ['drive-user', 'drive-external-share', 'drive-inbox', 'drive-admin'];
 
   readonly plannedItems = [
-    'Policy-Profile (CX-Nutzungsbedingungen)',
     'Ausstehende EDC-Operationen (Outbox) einsehen und anstoßen',
     'Quarantäne für verdächtige Dateien',
   ];
@@ -86,7 +87,7 @@ export class Admin {
 
   readonly cancelButtonOptions = {
     text: 'Abbrechen',
-    stylingMode: 'outlined',
+    stylingMode: 'contained',
     onClick: () => this.editorVisible.set(false),
   };
 
@@ -144,6 +145,27 @@ export class Admin {
   }
 
   formatSeverity = (row: EdcFinding): string => ({ Critical: 'kritisch', Warning: 'Warnung', Info: 'Hinweis' })[row.severity];
+  severityTone = (row: EdcFinding): string => ({ Critical: 'danger', Warning: 'warning', Info: 'info' })[row.severity];
+
+  edcTone(status: EdcStatus): string {
+    if (!status.checkedAt) {
+      return 'neutral';
+    }
+    if (!status.reachable || status.findings.some((f) => f.severity === 'Critical')) {
+      return 'danger';
+    }
+    return status.findings.length ? 'warning' : 'success';
+  }
+
+  edcLabel(status: EdcStatus): string {
+    if (!status.checkedAt) {
+      return 'offen';
+    }
+    if (!status.reachable) {
+      return 'nicht erreichbar';
+    }
+    return status.findings.length ? `${status.findings.length} Befund(e)` : 'in Ordnung';
+  }
 
   openCreate(): void {
     this.openEditor(null, '', [], false);
@@ -234,7 +256,6 @@ export class Admin {
       : row.acl.map((e) => `${typeLabels[e.principalType]} ${e.displayName}: ${permissionLabels[e.permission]}`).join(' · ');
 
   formatSize = (row: TeamSpace): string => formatBytes(row.storedBytes);
-  formatExternal = (row: TeamSpace): string => (row.externalSharingAllowed ? 'ja' : 'nein');
   formatType = (row: AclEntry): string => typeLabels[row.principalType];
 
   private openEditor(id: string | null, name: string, acl: AclEntry[], external: boolean): void {

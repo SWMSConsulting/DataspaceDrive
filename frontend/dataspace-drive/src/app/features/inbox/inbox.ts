@@ -8,9 +8,10 @@ import notify from 'devextreme/ui/notify';
 
 import { AuthService } from '../../core/auth.service';
 import { errorText } from '../../core/drive-api.service';
-import { IncomingItemInfo, IncomingOfferInfo, SharingApiService, offerInProgress, offerLabel } from '../../core/sharing-api.service';
+import { IncomingItemInfo, IncomingOfferInfo, SharingApiService, offerInProgress, offerLabel, offerTone } from '../../core/sharing-api.service';
 import { FolderNode, FolderPicker } from '../../shared/folder-picker/folder-picker';
-import { formatBytes, scanLabel } from '../../shared/format';
+import { formatBytes, scanLabel, scanTone } from '../../shared/format';
+import '../../core/devextreme-defaults';
 
 @Component({
   selector: 'app-inbox',
@@ -43,7 +44,7 @@ export class Inbox {
 
   readonly cancelButtonOptions = {
     text: 'Abbrechen',
-    stylingMode: 'outlined',
+    stylingMode: 'contained',
     onClick: () => this.acceptOffer.set(null),
   };
 
@@ -127,6 +128,8 @@ export class Inbox {
     row.size === 0 ? '' : `${Math.floor((row.receivedBytes / row.size) * 100)} %`;
   formatItemScan = (row: IncomingItemInfo): string => scanLabel(row.scanStatus);
   formatSize2 = (row: IncomingItemInfo): string => formatBytes(row.size);
+  tone = (row: IncomingOfferInfo): string => offerTone(row.state);
+  itemTone = (row: IncomingItemInfo): string => scanTone(row.scanStatus);
 
   private async confirmAccept(): Promise<void> {
     const offer = this.acceptOffer();

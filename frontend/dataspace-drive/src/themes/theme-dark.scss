@@ -1,0 +1,5 @@
+@use "sass:meta";
+
+@media (prefers-color-scheme: dark) {
+  @include meta.load-css("dx-dark");
+}

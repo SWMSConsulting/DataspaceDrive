@@ -2,22 +2,8 @@
   display: block;
 }
 
-.message {
-  margin: 0 0 8px;
-  color: #424242;
-  font-style: italic;
-}
-
-.newer {
-  color: #e65100;
-  font-size: 12px;
-}
-
-.approval {
-  color: #0d47a1;
-  font-size: 12px;
-}
-
-.approval.rejected {
-  color: #c62828;
+.recipients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }

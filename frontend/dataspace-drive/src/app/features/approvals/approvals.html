@@ -1,50 +1,63 @@
-<div class="page-header">
-  <h1 class="page-title">Freigaben prüfen</h1>
-  <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
-</div>
-<p class="hint">
-  Vier-Augen-Prinzip: Freigaben an Partnerunternehmen werden erst bereitgestellt, wenn eine zweite Person sie geprüft hat. Die Dateien lassen
-  sich dafür herunterladen; jeder Abruf wird protokolliert.
-</p>
-
-<dx-data-grid [dataSource]="pending()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" noDataText="Nichts zu prüfen.">
-  <dxo-master-detail [enabled]="true" template="items"></dxo-master-detail>
-  <dxi-column dataField="createdAt" caption="Angefordert" dataType="datetime" sortOrder="asc" [width]="150"></dxi-column>
-  <dxi-column dataField="createdByName" caption="Von" [width]="160"></dxi-column>
-  <dxi-column caption="Titel" [calculateCellValue]="formatTitle"></dxi-column>
-  <dxi-column caption="An" [calculateCellValue]="formatRecipients" [width]="200"></dxi-column>
-  <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="100" alignment="right"></dxi-column>
-  <dxi-column dataField="expiresAt" caption="Abrufbar bis" dataType="date" [width]="110"></dxi-column>
-  <dxi-column caption="" [width]="200" cellTemplate="actions"></dxi-column>
-  <div *dxTemplate="let cell of 'actions'">
-    <dx-button text="Freigeben" stylingMode="text" type="success" (onClick)="approve(cell.data)"></dx-button>
-    <dx-button text="Ablehnen" stylingMode="text" type="danger" (onClick)="startReject(cell.data)"></dx-button>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Freigaben prüfen</h1>
+    <p class="page-subtitle">
+      Vier-Augen-Prinzip: Freigaben an Partnerunternehmen werden erst bereitgestellt, wenn eine zweite Person sie geprüft hat. Die Dateien
+      lassen sich dafür herunterladen; jeder Abruf wird protokolliert.
+    </p>
   </div>
+  <div class="page-actions">
+    <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+  </div>
+</header>
 
-  <div *dxTemplate="let detail of 'items'">
-    @if (detail.data.message) {
-      <p class="message">„{{ detail.data.message }}“</p>
-    }
-    <ul class="items">
-      @for (item of detail.data.items; track item.itemKey) {
-        <li>
-          {{ itemLabel(item) }}
-          <dx-button text="Herunterladen" stylingMode="text" (onClick)="download(detail.data, item.itemKey)"></dx-button>
-        </li>
+<section class="card">
+  <dx-data-grid [dataSource]="pending()" keyExpr="id" [wordWrapEnabled]="true" [columnHidingEnabled]="true" noDataText="Nichts zu prüfen.">
+    <dxo-master-detail [enabled]="true" template="items"></dxo-master-detail>
+    <dxi-column dataField="createdAt" caption="Angefordert" dataType="datetime" sortOrder="asc" [width]="150"></dxi-column>
+    <dxi-column caption="Freigabe" [calculateCellValue]="formatTitle" [minWidth]="220" cellTemplate="titleCell"></dxi-column>
+    <dxi-column caption="An" [calculateCellValue]="formatRecipients" [width]="210"></dxi-column>
+    <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="96" alignment="right" [hidingPriority]="1"></dxi-column>
+    <dxi-column dataField="expiresAt" caption="Abrufbar bis" dataType="date" [width]="110" [hidingPriority]="0"></dxi-column>
+    <dxi-column caption="" [width]="220" cellTemplate="actions"></dxi-column>
+
+    <div *dxTemplate="let cell of 'titleCell'">
+      <div class="cell-primary">{{ cell.value }}</div>
+      <div class="cell-secondary">von {{ cell.data.createdByName }}</div>
+    </div>
+    <div *dxTemplate="let cell of 'actions'">
+      <div class="row-actions">
+        <dx-button text="Ablehnen" stylingMode="text" type="danger" (onClick)="startReject(cell.data)"></dx-button>
+        <dx-button text="Freigeben" type="default" (onClick)="approve(cell.data)"></dx-button>
+      </div>
+    </div>
+
+    <div *dxTemplate="let detail of 'items'">
+      @if (detail.data.message) {
+        <p class="message">{{ detail.data.message }}</p>
       }
-    </ul>
-  </div>
-</dx-data-grid>
+      <ul class="items">
+        @for (item of detail.data.items; track item.itemKey) {
+          <li>
+            <span>{{ itemLabel(item) }}</span>
+            <dx-button text="Herunterladen" icon="download" stylingMode="text" (onClick)="download(detail.data, item.itemKey)"></dx-button>
+          </li>
+        }
+      </ul>
+    </div>
+  </dx-data-grid>
+</section>
 
 <dx-popup [visible]="rejecting() !== null" (onHidden)="rejecting.set(null)" title="Freigabe ablehnen" [width]="520" height="auto" [showCloseButton]="true">
-  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="rejectButtonOptions"></dxi-popup-toolbar-item>
   <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="cancelButtonOptions"></dxi-popup-toolbar-item>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="rejectButtonOptions"></dxi-popup-toolbar-item>
   <div *dxTemplate="let data of 'content'">
     <p class="meta">„{{ rejecting()?.title }}“ von {{ rejecting()?.createdByName }}</p>
+    <label class="field-label" for="reject-reason">Begründung (optional, sieht der Absender)</label>
     <dx-text-area
-      placeholder="Begründung (optional, sieht der Absender)"
+      id="reject-reason"
       [maxLength]="1000"
-      [height]="100"
+      [height]="110"
       [value]="reason()"
       (onValueChanged)="reason.set($event.value ?? '')"
     ></dx-text-area>

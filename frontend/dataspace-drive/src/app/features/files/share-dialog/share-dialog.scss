@@ -1,28 +1,40 @@
 .file-list {
-  margin: 0 0 12px;
-  padding-left: 20px;
-  max-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 140px;
+  margin: 0 0 6px;
+  padding: 6px;
   overflow: auto;
+  border-radius: var(--radius-md);
+  background: var(--fill);
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 32px;
+    padding: 0 8px;
+  }
+
+  app-icon {
+    color: var(--accent);
+  }
 }
 
-.field-label {
-  display: block;
-  margin: 12px 0 4px;
-  color: #616161;
-  font-size: 13px;
-}
-
-.privacy {
-  margin: 16px 0 0;
-  color: #616161;
-  font-size: 13px;
+.file-name {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .folder-note {
-  color: #616161;
+  color: var(--text-2);
   font-size: 12px;
 }
 
-.approval {
-  color: #0d47a1;
+.privacy {
+  margin: 20px 0 0;
 }

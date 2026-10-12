@@ -75,6 +75,7 @@ app.MapGet("/api/config", (IConfiguration cfg, IUploadService uploads) => Result
 {
     participantId = cfg["Drive:Participant:Id"],
     bpn = cfg["Drive:Participant:Bpn"],
+    organization = cfg["Drive:Participant:Organization"],
     dspAddress = cfg["Drive:Participant:DspAddress"],
     edcProfile = cfg["Drive:Edc:VersionProfile"],
     maxUploadBytes = uploads.MaxFileSize,

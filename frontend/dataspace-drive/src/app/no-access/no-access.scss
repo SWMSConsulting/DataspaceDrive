@@ -1,5 +1,33 @@
-.box {
-  max-width: 520px;
-  margin: 80px auto;
-  padding: 0 20px;
+:host {
+  display: block;
+  height: 100%;
+  overflow: auto;
+  background: var(--aurora), var(--bg);
+}
+
+.wrap {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.panel {
+  max-width: 440px;
+  padding: 40px 36px 36px;
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.mark {
+  margin-bottom: 20px;
+  border-radius: 15px;
+  box-shadow: 0 10px 26px rgba(10, 132, 255, 0.32);
+}
+
+.page-subtitle {
+  margin: 12px auto 26px;
 }

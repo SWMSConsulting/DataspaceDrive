@@ -1,25 +1,4 @@
-.config {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 8px 24px;
-  margin: 0;
-}
-
-dt {
-  color: #616161;
-}
-
-dd {
-  margin: 0;
-  font-family: monospace;
-}
-
-.error {
-  color: #c62828;
-}
-
-.section-title {
-  margin: 16px 0 8px;
-  font-size: 17px;
-  font-weight: 600;
+:host {
+  display: block;
+  max-width: 880px;
 }

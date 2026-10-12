@@ -21,9 +21,10 @@ import {
 import { AuthService } from '../../core/auth.service';
 import { ConfigService } from '../../core/config.service';
 import { DriveApiService, DriveItem, SpaceInfo, errorText } from '../../core/drive-api.service';
-import { downloadFile, formatBytes, scanLabel } from '../../shared/format';
+import { downloadFile, formatBytes, scanLabel, scanTone } from '../../shared/format';
 import { Preview, PreviewFile, previewable } from './preview/preview';
 import { ShareDialog, ShareFile } from './share-dialog/share-dialog';
+import '../../core/devextreme-defaults';
 
 /** Ordner bzw. Bereich im FileManager; Bereiche zeigen auf ihren Wurzelordner. */
 interface DirectoryData {
@@ -117,8 +118,8 @@ export class Files {
         'thumbnail',
         'name',
         { dataField: 'scanLabel', caption: 'Prüfung', width: 130 },
-        'dateModified',
-        'size',
+        { dataField: 'dateModified', caption: 'Geändert', width: 170 },
+        { dataField: 'size', caption: 'Größe', width: 110 },
       ],
     },
   };
@@ -218,6 +219,7 @@ export class Files {
   formatSize = (row: DriveItem): string => (row.isDirectory ? '' : formatBytes(row.size));
   formatType = (row: DriveItem): string => (row.isDirectory ? 'Ordner' : 'Datei');
   formatScan = (row: DriveItem): string => scanLabel(row.scanStatus);
+  scanToneOf = (row: DriveItem): string => scanTone(row.scanStatus);
 
   private async getItems(parent: FileSystemItem): Promise<(DirectoryData | FileData)[]> {
     if (parent.pathKeys.length === 0) {

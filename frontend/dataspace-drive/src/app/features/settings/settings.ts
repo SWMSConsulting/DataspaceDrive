@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
-import { DxCheckBoxModule } from 'devextreme-angular/ui/check-box';
+import { DxSwitchModule } from 'devextreme-angular/ui/switch';
 import notify from 'devextreme/ui/notify';
 import { firstValueFrom } from 'rxjs';
 
@@ -10,7 +10,7 @@ import { errorText } from '../../core/drive-api.service';
 
 @Component({
   selector: 'app-settings',
-  imports: [DxCheckBoxModule],
+  imports: [DxSwitchModule],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',
 })

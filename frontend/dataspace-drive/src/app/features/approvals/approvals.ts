@@ -8,6 +8,7 @@ import notify from 'devextreme/ui/notify';
 import { errorText } from '../../core/drive-api.service';
 import { ShareSummary, SharingApiService } from '../../core/sharing-api.service';
 import { downloadFile, formatBytes } from '../../shared/format';
+import '../../core/devextreme-defaults';
 
 /** Vier-Augen-Prinzip: Freigaben anderer prüfen, freigeben oder ablehnen. */
 @Component({
@@ -32,7 +33,7 @@ export class Approvals {
 
   readonly cancelButtonOptions = {
     text: 'Abbrechen',
-    stylingMode: 'outlined',
+    stylingMode: 'contained',
     onClick: () => this.rejecting.set(null),
   };
 

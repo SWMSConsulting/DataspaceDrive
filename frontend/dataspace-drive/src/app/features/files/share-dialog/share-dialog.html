@@ -2,20 +2,20 @@
   [visible]="visible()"
   (onHidden)="close(false)"
   title="An Partner freigeben"
-  [width]="640"
+  [width]="620"
   height="auto"
   [showCloseButton]="true"
 >
-  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="shareButtonOptions"></dxi-popup-toolbar-item>
   <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="cancelButtonOptions"></dxi-popup-toolbar-item>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="shareButtonOptions"></dxi-popup-toolbar-item>
   <div *dxTemplate="let data of 'content'">
     <ul class="file-list">
       @for (file of files() ?? []; track file.id) {
         <li>
+          <app-icon [name]="file.isDirectory ? 'folder' : 'file'" [size]="18" />
+          <span class="file-name">{{ file.name }}</span>
           @if (file.isDirectory) {
-            <i class="dx-icon dx-icon-folder"></i> {{ file.name }} <span class="folder-note">(Ordner mit allen Unterordnern)</span>
-          } @else {
-            {{ file.name }}
+            <span class="folder-note">mit allen Unterordnern</span>
           }
         </li>
       }
@@ -42,7 +42,7 @@
     <dx-text-area
       id="share-message"
       [maxLength]="2000"
-      [height]="80"
+      [height]="84"
       [value]="message()"
       (onValueChanged)="message.set($event.value ?? '')"
     ></dx-text-area>
@@ -57,12 +57,16 @@
       (onValueChanged)="expiresAt.set($event.value)"
     ></dx-date-box>
 
-    @if (auth.me()?.sharingRequiresApproval) {
-      <p class="privacy approval">Vier-Augen-Prinzip: Die Freigabe wird erst bereitgestellt, wenn eine zweite Person sie geprüft hat.</p>
-    }
-    <p class="privacy">
-      Titel, Nachricht, Dateinamen und Ihr Unternehmen sieht der Partner im Katalog seines Connectors. Personen werden nicht genannt.
-      Jeder Partner sieht nur seine eigene Zustellung.
-    </p>
+    <div class="notice privacy">
+      @if (auth.me()?.sharingRequiresApproval) {
+        <p class="notice-text">
+          <strong>Vier-Augen-Prinzip:</strong> Die Freigabe wird erst bereitgestellt, wenn eine zweite Person sie geprüft hat.
+        </p>
+      }
+      <p class="notice-text">
+        Titel, Nachricht, Dateinamen und Ihr Unternehmen sieht der Partner im Katalog seines Connectors. Personen werden nicht genannt. Jeder
+        Partner sieht nur seine eigene Zustellung.
+      </p>
+    </div>
   </div>
 </dx-popup>

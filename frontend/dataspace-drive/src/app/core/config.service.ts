@@ -5,6 +5,8 @@ import { Injectable, inject, signal } from '@angular/core';
 export interface DriveConfig {
   participantId?: string;
   bpn?: string;
+  /** Name des eigenen Unternehmens, wie ihn Partner im Katalog sehen. */
+  organization?: string;
   dspAddress?: string;
   edcProfile?: string;
   /** Größte annehmbare Datei; mit Virenscan durch dessen Grenze beschränkt. */

@@ -1,35 +1,80 @@
-<div class="page-header">
-  <h1 class="page-title">Partner</h1>
-  <dx-button text="Partner anlegen" icon="add" type="default" (onClick)="openCreate()"></dx-button>
-  <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
-</div>
-<p class="hint">
-  Unternehmen im Dataspace, mit denen Dateien ausgetauscht werden. Die DID löst der eigene Connector über das BDRS auf; die DSP-Adresse
-  stammt vom Partner. Gesperrte Partner erhalten nichts mehr und werden nicht mehr abgefragt.
-</p>
-
-<dx-data-grid [dataSource]="partners()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" noDataText="Noch keine Partner.">
-  <dxi-column dataField="name" caption="Name" [width]="170" sortOrder="asc"></dxi-column>
-  <dxi-column dataField="bpn" caption="BPN" [width]="160"></dxi-column>
-  <dxi-column dataField="dspAddress" caption="DSP-Adresse"></dxi-column>
-  <dxi-column dataField="did" caption="DID"></dxi-column>
-  <dxi-column caption="Status" [calculateCellValue]="formatStatus" [width]="120"></dxi-column>
-  <dxi-column caption="Austausch" [calculateCellValue]="formatFlags" [width]="140"></dxi-column>
-  <dxi-column caption="Automatisch annehmen" [calculateCellValue]="formatAutoAccept" [width]="180"></dxi-column>
-  <dxi-column caption="Benachrichtigung" [calculateCellValue]="formatNotify" [width]="220"></dxi-column>
-  <dxi-column dataField="lastPolledAt" caption="Zuletzt abgefragt" dataType="datetime" [width]="150"></dxi-column>
-  <dxi-column caption="Fehler" [calculateCellValue]="formatError"></dxi-column>
-  <dxi-column caption="" [width]="260" cellTemplate="actions"></dxi-column>
-  <div *dxTemplate="let cell of 'actions'">
-    <dx-button text="Bearbeiten" stylingMode="text" (onClick)="openEdit(cell.data)"></dx-button>
-    <dx-button text="Prüfen" stylingMode="text" (onClick)="resolve(cell.data)"></dx-button>
-    <dx-button text="Löschen" stylingMode="text" type="danger" (onClick)="remove(cell.data)"></dx-button>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Partner</h1>
+    <p class="page-subtitle">
+      Unternehmen im Dataspace, mit denen Dateien ausgetauscht werden. Die DID löst der eigene Connector über das BDRS auf; die DSP-Adresse
+      stammt vom Partner. Gesperrte Partner erhalten nichts mehr und werden nicht mehr abgefragt.
+    </p>
   </div>
-</dx-data-grid>
+  <div class="page-actions">
+    <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+    <dx-button text="Partner anlegen" icon="add" type="default" (onClick)="openCreate()"></dx-button>
+  </div>
+</header>
+
+<section class="card">
+  <dx-data-grid [dataSource]="partners()" keyExpr="id" [wordWrapEnabled]="true" [columnHidingEnabled]="true" noDataText="Noch keine Partner.">
+    <dxo-master-detail [enabled]="true" template="details"></dxo-master-detail>
+    <dxi-column dataField="name" caption="Partner" [minWidth]="200" sortOrder="asc" cellTemplate="nameCell"></dxi-column>
+    <dxi-column caption="Status" [calculateCellValue]="formatStatus" [width]="180" cellTemplate="statusCell"></dxi-column>
+    <dxi-column caption="Austausch" [calculateCellValue]="formatFlags" [width]="130" [hidingPriority]="0"></dxi-column>
+    <dxi-column caption="Automatisch annehmen" [calculateCellValue]="formatAutoAccept" [width]="160" [hidingPriority]="1"></dxi-column>
+    <dxi-column caption="Benachrichtigung" [width]="200" cellTemplate="notifyCell" [hidingPriority]="2"></dxi-column>
+    <dxi-column caption="" [width]="140" cellTemplate="actions"></dxi-column>
+
+    <div *dxTemplate="let cell of 'nameCell'">
+      <div class="cell-primary">{{ cell.value }}</div>
+      <div class="cell-secondary mono">{{ cell.data.bpn }}</div>
+    </div>
+    <div *dxTemplate="let cell of 'statusCell'">
+      <span [class]="'pill pill-' + statusTone(cell.data)">{{ cell.value }}</span>
+      <div class="cell-secondary">abgefragt {{ formatTime(cell.data.lastPolledAt) }}</div>
+      @if (formatError(cell.data); as error) {
+        <div class="cell-note note-danger">{{ error }}</div>
+      }
+    </div>
+    <div *dxTemplate="let cell of 'notifyCell'">
+      <div class="cell-secondary">gesendet {{ formatTime(cell.data.lastNotifiedAt) }}</div>
+      <div class="cell-secondary">empfangen {{ formatTime(cell.data.lastNotificationReceivedAt) }}</div>
+      @if (cell.data.notifyError) {
+        <div class="cell-note note-warning">{{ cell.data.notifyError }}</div>
+      }
+    </div>
+    <div *dxTemplate="let cell of 'actions'">
+      <div class="row-actions">
+        <dx-button
+          icon="trash"
+          stylingMode="text"
+          type="danger"
+          hint="Löschen"
+          [elementAttr]="{ 'aria-label': 'Löschen' }"
+          (onClick)="remove(cell.data)"
+        ></dx-button>
+        <dx-button
+          icon="refresh"
+          stylingMode="text"
+          hint="DID erneut auflösen"
+          [elementAttr]="{ 'aria-label': 'DID erneut auflösen' }"
+          (onClick)="resolve(cell.data)"
+        ></dx-button>
+        <dx-button icon="edit" hint="Bearbeiten" [elementAttr]="{ 'aria-label': 'Bearbeiten' }" (onClick)="openEdit(cell.data)"></dx-button>
+      </div>
+    </div>
+
+    <div *dxTemplate="let detail of 'details'">
+      <dl class="details">
+        <dt>DSP-Adresse</dt>
+        <dd class="mono">{{ detail.data.dspAddress || '–' }}</dd>
+        <dt>DID</dt>
+        <dd class="mono">{{ detail.data.did || '–' }}</dd>
+      </dl>
+    </div>
+  </dx-data-grid>
+</section>
 
 <dx-popup [visible]="editorVisible()" (onHidden)="editorVisible.set(false)" [title]="editorTitle()" [width]="560" height="auto" [showCloseButton]="true">
-  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="saveButtonOptions"></dxi-popup-toolbar-item>
   <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="cancelButtonOptions"></dxi-popup-toolbar-item>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="saveButtonOptions"></dxi-popup-toolbar-item>
   <div *dxTemplate="let data of 'content'">
     <label class="field-label" for="partner-bpn">BPN</label>
     <dx-text-box
@@ -63,10 +108,12 @@
       (onValueChanged)="update('autoAccept', $event.value)"
     ></dx-select-box>
     @if (draft().autoAccept === 'All') {
-      <p class="hint-small">Zielordner (abgelegt wird in Ihrem Namen; Sie brauchen Schreibrecht): {{ draftFolderPath() ?? 'noch nicht gewählt' }}</p>
-      <app-folder-picker [height]="220" (selected)="onFolderSelected($event)" />
+      <p class="form-hint">Zielordner (abgelegt wird in Ihrem Namen; Sie brauchen Schreibrecht): {{ draftFolderPath() ?? 'noch nicht gewählt' }}</p>
+      <div class="picker">
+        <app-folder-picker [height]="220" (selected)="onFolderSelected($event)" />
+      </div>
     } @else if (draft().autoAccept === 'UpdatesOnly') {
-      <p class="hint-small">Neue Revisionen einer übernommenen Freigabe landen ohne Rückfrage am bisherigen Ort.</p>
+      <p class="form-hint">Neue Revisionen einer übernommenen Freigabe landen ohne Rückfrage am bisherigen Ort.</p>
     }
   </div>
 </dx-popup>

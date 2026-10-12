@@ -25,6 +25,19 @@ export function scanLabel(status: ScanStatus | null): string {
   return status ? scanLabels[status] : '';
 }
 
+const scanTones: Record<ScanStatus, 'neutral' | 'success' | 'warning' | 'danger' | 'progress'> = {
+  Pending: 'progress',
+  Clean: 'success',
+  Infected: 'danger',
+  NotScannable: 'warning',
+  Error: 'danger',
+  NotScanned: 'neutral',
+};
+
+export function scanTone(status: ScanStatus | null): string {
+  return status ? scanTones[status] : 'neutral';
+}
+
 /** Startet den Download im Browser; das Sitzungs-Cookie authentifiziert den Request. */
 export function downloadFile(url: string): void {
   const link = document.createElement('a');

@@ -1,57 +1,72 @@
-<div class="page-header">
-  <h1 class="page-title">Dateien</h1>
-</div>
-
-<div class="search">
-  <dx-text-box
-    class="search-box"
-    placeholder="Dateien und Ordner suchen …"
-    mode="search"
-    [value]="searchTerm()"
-    (onValueChanged)="searchTerm.set($event.value ?? '')"
-    (onEnterKey)="search()"
-  ></dx-text-box>
-  <dx-button text="Suchen" icon="search" (onClick)="search()"></dx-button>
-  @if (searchResults() !== null) {
-    <dx-button text="Suche schließen" stylingMode="text" (onClick)="clearSearch()"></dx-button>
-  }
-</div>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Dateien</h1>
+    <p class="page-subtitle">Ihre Ablage und die Team-Bereiche. Geprüfte Dateien und Ordner lassen sich an Partnerunternehmen freigeben.</p>
+  </div>
+  <div class="page-actions">
+    <dx-text-box
+      class="search-box"
+      placeholder="Dateien und Ordner suchen"
+      mode="search"
+      [elementAttr]="{ 'aria-label': 'Dateien und Ordner suchen' }"
+      [value]="searchTerm()"
+      (onValueChanged)="searchTerm.set($event.value ?? '')"
+      (onEnterKey)="search()"
+    ></dx-text-box>
+    @if (searchResults() !== null) {
+      <dx-button text="Suche schließen" stylingMode="text" (onClick)="clearSearch()"></dx-button>
+    }
+  </div>
+</header>
 
 @if (searchError(); as message) {
-  <p class="error">{{ message }}</p>
+  <p class="error-text">{{ message }}</p>
 }
 
 @if (searchResults(); as results) {
-  <dx-data-grid class="results" [dataSource]="results" [showBorders]="true" keyExpr="id" noDataText="Keine Treffer.">
-    <dxi-column dataField="name" caption="Name"></dxi-column>
-    <dxi-column caption="Typ" [calculateCellValue]="formatType" [width]="90"></dxi-column>
-    <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="110"></dxi-column>
-    <dxi-column caption="Prüfung" [calculateCellValue]="formatScan" [width]="130"></dxi-column>
-    <dxi-column dataField="modifiedAt" caption="Geändert" dataType="datetime" [width]="170"></dxi-column>
-    <dxi-column caption="" [width]="120" cellTemplate="actions"></dxi-column>
-    <div *dxTemplate="let cell of 'actions'">
-      @if (!cell.data.isDirectory) {
-        <dx-button text="Herunterladen" stylingMode="text" (onClick)="download(cell.data)"></dx-button>
-      }
-    </div>
-  </dx-data-grid>
+  <section class="card results">
+    <dx-data-grid [dataSource]="results" keyExpr="id" [wordWrapEnabled]="true" noDataText="Keine Treffer.">
+      <dxi-column dataField="name" caption="Name" [minWidth]="220" cellTemplate="nameCell"></dxi-column>
+      <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="110" alignment="right"></dxi-column>
+      <dxi-column caption="Prüfung" [calculateCellValue]="formatScan" [width]="150" cellTemplate="scanCell"></dxi-column>
+      <dxi-column dataField="modifiedAt" caption="Geändert" dataType="datetime" [width]="170"></dxi-column>
+      <dxi-column caption="" [width]="150" cellTemplate="actions"></dxi-column>
+      <div *dxTemplate="let cell of 'nameCell'">
+        <div class="cell-primary">{{ cell.value }}</div>
+        <div class="cell-secondary">{{ formatType(cell.data) }}</div>
+      </div>
+      <div *dxTemplate="let cell of 'scanCell'">
+        @if (cell.value) {
+          <span [class]="'pill pill-' + scanToneOf(cell.data)">{{ cell.value }}</span>
+        }
+      </div>
+      <div *dxTemplate="let cell of 'actions'">
+        <div class="row-actions">
+          @if (!cell.data.isDirectory) {
+            <dx-button text="Herunterladen" icon="download" stylingMode="text" (onClick)="download(cell.data)"></dx-button>
+          }
+        </div>
+      </div>
+    </dx-data-grid>
+  </section>
 }
 
-<dx-file-manager
-  class="file-manager"
-  rootFolderName="Bereiche"
-  [fileSystemProvider]="fileProvider"
-  [permissions]="permissions()"
-  [upload]="upload()"
-  [itemView]="itemView"
-  [height]="560"
-  [toolbar]="toolbar()"
-  [contextMenu]="contextMenu()"
-  (onCurrentDirectoryChanged)="onCurrentDirectoryChanged($event)"
-  (onSelectionChanged)="onSelectionChanged($event)"
-  (onContextMenuItemClick)="onMenuItemClick($event)"
-  (onSelectedFileOpened)="onFileOpened($event)"
-></dx-file-manager>
+<section class="card file-card">
+  <dx-file-manager
+    rootFolderName="Bereiche"
+    [fileSystemProvider]="fileProvider"
+    [permissions]="permissions()"
+    [upload]="upload()"
+    [itemView]="itemView"
+    height="100%"
+    [toolbar]="toolbar()"
+    [contextMenu]="contextMenu()"
+    (onCurrentDirectoryChanged)="onCurrentDirectoryChanged($event)"
+    (onSelectionChanged)="onSelectionChanged($event)"
+    (onContextMenuItemClick)="onMenuItemClick($event)"
+    (onSelectedFileOpened)="onFileOpened($event)"
+  ></dx-file-manager>
+</section>
 
 <app-preview [file]="previewFile()" (closed)="previewFile.set(null)" />
 

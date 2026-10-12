@@ -1,4 +1,104 @@
-// Gemeinsame Seitenbausteine; Komponenten-SCSS enthält nur, was wirklich komponentenspezifisch ist.
+// Design-System der Drive: Tokens, Seitenbausteine und der Feinschliff der DevExtreme-Widgets.
+// Komponenten-SCSS enthält nur, was wirklich komponentenspezifisch ist. Farben stehen nur hier als Tokens;
+// die DevExtreme-Themes (themes/_dx-*.scss) verwenden dieselben Werte.
+
+// --- Tokens ---------------------------------------------------------------------------------------------------------
+
+:root {
+  color-scheme: light dark;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Inter, Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", Inter, Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-2: #fafafc;
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-sidebar: rgba(250, 250, 252, 0.68);
+  --fill: rgba(120, 120, 128, 0.12);
+  --fill-hover: rgba(120, 120, 128, 0.2);
+  --hover: rgba(0, 0, 0, 0.035);
+  --text: #1d1d1f;
+  --text-2: #6e6e73;
+  --text-3: #8e8e93;
+  --separator: rgba(0, 0, 0, 0.08);
+  --border: rgba(0, 0, 0, 0.12);
+
+  --accent: #0071e3;
+  --accent-hover: #0077ed;
+  --accent-text: #0066cc;
+  --accent-tint: rgba(0, 113, 227, 0.1);
+  --accent-ring: rgba(0, 113, 227, 0.32);
+  --success: #248a3d;
+  --success-tint: rgba(52, 199, 89, 0.15);
+  --warning: #b25000;
+  --warning-tint: rgba(255, 149, 0, 0.16);
+  --danger: #d70015;
+  --danger-tint: rgba(255, 59, 48, 0.12);
+  --neutral-tint: rgba(120, 120, 128, 0.14);
+
+  --brand-gradient: linear-gradient(135deg, #0a84ff 0%, #3cb8ff 55%, #2fd6c6 100%);
+  --aurora:
+    radial-gradient(1100px 560px at 88% -12%, rgba(0, 113, 227, 0.11), transparent 62%),
+    radial-gradient(820px 480px at 18% -6%, rgba(47, 214, 198, 0.1), transparent 58%);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.16), 0 6px 18px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.05);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --sidebar-width: 264px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --surface-2: #222224;
+    --glass: rgba(30, 30, 32, 0.72);
+    --glass-sidebar: rgba(24, 24, 27, 0.6);
+    --fill: rgba(118, 118, 128, 0.24);
+    --fill-hover: rgba(118, 118, 128, 0.34);
+    --hover: rgba(255, 255, 255, 0.045);
+    --text: #f5f5f7;
+    --text-2: #a1a1a6;
+    --text-3: #6e6e73;
+    --separator: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.14);
+
+    --accent: #0a84ff;
+    --accent-hover: #409cff;
+    --accent-text: #2997ff;
+    --accent-tint: rgba(10, 132, 255, 0.2);
+    --accent-ring: rgba(10, 132, 255, 0.5);
+    --success: #30d158;
+    --success-tint: rgba(48, 209, 88, 0.18);
+    --warning: #ff9f0a;
+    --warning-tint: rgba(255, 159, 10, 0.18);
+    --danger: #ff453a;
+    --danger-tint: rgba(255, 69, 58, 0.2);
+    --neutral-tint: rgba(118, 118, 128, 0.26);
+
+    --aurora:
+      radial-gradient(1100px 560px at 88% -12%, rgba(10, 132, 255, 0.24), transparent 62%),
+      radial-gradient(820px 480px at 14% -8%, rgba(47, 214, 198, 0.13), transparent 58%);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.07);
+    --shadow-lg: 0 32px 90px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.09);
+  }
+}
+
+// --- Grundlagen -----------------------------------------------------------------------------------------------------
 
 html,
 body {
@@ -6,29 +106,569 @@ body {
   margin: 0;
 }
 
-.page-header {
+// App-Layout: ein Hinweisbanner von DevExtreme (ohne Lizenz) steht oben, die App füllt die Resthöhe und scrollt im Inhalt.
+body {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
+app-root {
+  display: block;
+  flex: 1;
+  min-height: 0;
+}
+
+::selection {
+  background: var(--accent-tint);
+}
+
+a {
+  color: var(--accent-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+// --- Seitenbausteine ------------------------------------------------------------------------------------------------
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin: 0 0 24px;
+}
+
+.page-heading {
+  flex: 1 1 380px;
+  min-width: 0;
+}
+
+// Element und Klasse, damit die Überschriften-Größen der Fluent-Typografie (.dx-theme-fluent-typography hN) nicht greifen.
+h1.page-title,
 .page-title {
   margin: 0;
-  font-size: 22px;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.022em;
+}
+
+.page-subtitle,
+.hint {
+  max-width: 76ch;
+  margin: 8px 0 0;
+  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.section {
+  margin-top: 36px;
+}
+
+.section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin: 0 0 14px;
+}
+
+h2.section-title,
+.section-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+.section-subtitle {
+  max-width: 76ch;
+  margin: 6px 0 0;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.card {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.card-body {
+  padding: 20px 24px;
+}
+
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 0 0 14px;
+}
+
+.meta,
+.muted {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.meta {
+  margin: 0 0 10px;
+}
+
+.message {
+  margin: 0 0 12px;
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--accent-tint);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.error,
+.error-text {
+  color: var(--danger);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: -0.01em;
+}
+
+.field-label {
+  display: block;
+  margin: 18px 0 6px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.field-label:first-child {
+  margin-top: 0;
+}
+
+.form-hint {
+  margin: 8px 0 0;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cell-primary {
+  color: var(--text);
   font-weight: 600;
 }
 
-.hint {
-  margin: 0 0 16px;
-  color: #616161;
+.cell-secondary {
+  margin-top: 2px;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.cell-note {
+  margin-top: 4px;
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.note-warning {
+  color: var(--warning);
+}
+
+.note-danger {
+  color: var(--danger);
+}
+
+// Hinweis im Dialog oder auf der Seite: getönte Fläche statt Rahmen.
+.notice {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--accent-tint);
+}
+
+.notice-text {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.notice-text:last-child {
+  margin-bottom: 0;
+}
+
+// Gruppierte Einstellungen wie in den Systemeinstellungen: eine Karte, Zeilen mit Trennlinie.
+.settings-list {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 52px;
+  padding: 12px 20px;
+  box-sizing: border-box;
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid var(--separator);
+}
+
+.settings-row-text {
+  min-width: 0;
+}
+
+.settings-row-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.settings-row-detail {
+  margin-top: 3px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.settings-row-value {
+  color: var(--text-2);
+  font-size: 13px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+// Status als Pille mit Punkt; die Farbe trägt nie allein die Bedeutung, der Text steht immer dabei.
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--neutral-tint);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 22px;
+  white-space: nowrap;
+}
+
+.pill::before {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.pill-info {
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+
+.pill-success {
+  background: var(--success-tint);
+  color: var(--success);
+}
+
+.pill-warning {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
+.pill-danger {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.pill-progress {
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+
+.pill-progress::before {
+  animation: pill-pulse 1.4s var(--ease) infinite;
+}
+
+@keyframes pill-pulse {
+  50% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
 }
 
 .phase-badge {
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: #e3f2fd;
-  color: #0d47a1;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent-tint);
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 600;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+// --- DevExtreme: Buttons --------------------------------------------------------------------------------------------
+
+.dx-button {
+  border-radius: 10px;
+  transition:
+    background-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease),
+    transform 0.12s var(--ease);
+}
+
+.dx-button:not(.dx-state-disabled):active {
+  transform: scale(0.97);
+}
+
+.dx-button .dx-button-text {
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+.dx-button-mode-contained.dx-button-default:not(.dx-state-disabled) {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.dx-button-mode-contained.dx-button-normal {
+  border-color: transparent;
+  background-color: var(--fill);
+}
+
+.dx-button-mode-contained.dx-button-normal.dx-state-hover {
+  background-color: var(--fill-hover);
+}
+
+.dx-button-mode-text.dx-state-hover {
+  background-color: var(--fill);
+}
+
+// --- DevExtreme: Eingabefelder --------------------------------------------------------------------------------------
+
+.dx-texteditor.dx-editor-outlined {
+  border-radius: 10px;
+}
+
+.dx-texteditor.dx-editor-outlined.dx-state-focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.dx-texteditor.dx-editor-outlined::after,
+.dx-texteditor.dx-editor-outlined::before {
+  display: none;
+}
+
+// --- DevExtreme: Tabellen -------------------------------------------------------------------------------------------
+
+.dx-datagrid {
+  background: transparent;
+}
+
+.dx-datagrid-headers {
+  border-bottom: 1px solid var(--separator);
+  background: transparent;
+}
+
+.dx-datagrid-headers .dx-header-row > td {
+  padding-top: 12px;
+  padding-bottom: 10px;
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.dx-datagrid .dx-row > td {
+  vertical-align: middle;
+}
+
+// Spalten mit Kennungen (BPN, SHA-256, Aktion) zeigen nur die Werte in Mono, nicht den Spaltenkopf.
+.dx-datagrid-headers .mono {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  letter-spacing: normal;
+}
+
+.dx-datagrid-rowsview .dx-row.dx-data-row > td {
+  padding-top: 13px;
+  padding-bottom: 13px;
+  border-bottom-color: var(--separator);
+}
+
+.dx-datagrid .dx-row > td:first-child,
+.dx-datagrid .dx-header-row > td:first-child {
+  padding-left: 20px;
+}
+
+.dx-datagrid .dx-row > td:last-child,
+.dx-datagrid .dx-header-row > td:last-child {
+  padding-right: 16px;
+}
+
+.dx-datagrid-rowsview .dx-row.dx-data-row.dx-state-hover:not(.dx-selection) > td {
+  background-color: var(--hover);
+}
+
+.dx-datagrid-nodata {
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+.dx-datagrid-rowsview .dx-master-detail-row > .dx-master-detail-cell {
+  padding: 16px 24px 20px 52px;
+  background: var(--surface-2);
+}
+
+.dx-master-detail-cell .dx-datagrid {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.card > .dx-datagrid .dx-datagrid-headers,
+.card .dx-datagrid-borders > .dx-datagrid-headers {
+  border-top: 0;
+}
+
+// --- DevExtreme: Overlays -------------------------------------------------------------------------------------------
+
+.dx-overlay-shader {
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+}
+
+.dx-popup-wrapper > .dx-overlay-content {
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+.dx-popup-title.dx-toolbar {
+  padding: 18px 24px 6px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.dx-popup-title .dx-toolbar-label {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+.dx-popup-content {
+  padding: 10px 24px 18px;
+}
+
+.dx-popup-bottom.dx-toolbar {
+  padding: 12px 24px 20px;
+  border-top: 0;
+  background: transparent;
+}
+
+.dx-toast-content {
+  min-height: 0;
+  padding: 12px 18px;
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  font-weight: 500;
+}
+
+.dx-context-menu .dx-submenu,
+.dx-dropdowneditor-overlay > .dx-overlay-content,
+.dx-dropdownlist-popup-wrapper > .dx-overlay-content {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+// --- DevExtreme: Listen, Bäume, Dateimanager -----------------------------------------------------------------------
+
+.dx-treeview-item {
+  border-radius: 8px;
+}
+
+.dx-filemanager {
+  border: 0;
+  background: transparent;
+}
+
+.dx-filemanager .dx-filemanager-toolbar {
+  border-bottom: 1px solid var(--separator);
+  background: transparent;
+}
+
+.dx-filemanager .dx-filemanager-dirs-panel {
+  background: var(--surface-2);
+}
+
+.dx-filemanager .dx-drawer-panel-content {
+  border-right: 1px solid var(--separator);
+}
+
+.dx-filemanager .dx-filemanager-breadcrumbs {
+  border-bottom: 1px solid var(--separator);
 }

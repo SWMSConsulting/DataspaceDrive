@@ -5,6 +5,7 @@ import notify from 'devextreme/ui/notify';
 
 import { AdminApiService, AuditEntry } from '../../core/admin-api.service';
 import { errorText } from '../../core/drive-api.service';
+import '../../core/devextreme-defaults';
 
 @Component({
   selector: 'app-activity',

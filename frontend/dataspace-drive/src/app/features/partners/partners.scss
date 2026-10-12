@@ -2,22 +2,30 @@
   display: block;
 }
 
-.field-label {
-  display: block;
-  margin: 12px 0 4px;
-  color: #616161;
-  font-size: 13px;
-}
-
 .flags {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 18px;
 }
 
-.hint-small {
-  margin: 8px 0;
-  color: #616161;
-  font-size: 13px;
+.picker {
+  margin-top: 10px;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 24px;
+  margin: 0;
+
+  dt {
+    color: var(--text-2);
+    font-size: 13px;
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
 }

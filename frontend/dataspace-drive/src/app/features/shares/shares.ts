@@ -15,8 +15,10 @@ import {
   SharingApiService,
   deliveryInProgress,
   deliveryLabel,
+  deliveryTone,
 } from '../../core/sharing-api.service';
 import { formatBytes } from '../../shared/format';
+import '../../core/devextreme-defaults';
 
 const decisionLabels: Record<string, string> = {
   Allowed: 'ausgeliefert',
@@ -143,6 +145,8 @@ export class Shares {
   formatRecipients = (row: ShareSummary): string =>
     row.deliveries.map((d) => `${d.partnerName}: ${deliveryLabel(d.state)}`).join(' · ');
   formatState = (row: DeliveryInfo): string => deliveryLabel(row.state);
+  stateLabel = (d: DeliveryInfo): string => deliveryLabel(d.state);
+  deliveryToneOf = (d: DeliveryInfo): string => deliveryTone(d.state);
   formatDecision = (row: RetrievalInfo): string => decisionLabels[row.decision] ?? row.decision;
   formatRange = (row: RetrievalInfo): string =>
     row.offset === null && row.length === null ? 'ganze Datei' : `ab ${formatBytes(row.offset ?? 0)}, ${formatBytes(row.length ?? 0)}`;

@@ -9,6 +9,7 @@ import notify from 'devextreme/ui/notify';
 import { AuthService } from '../../../core/auth.service';
 import { errorText } from '../../../core/drive-api.service';
 import { ShareTarget, SharingApiService } from '../../../core/sharing-api.service';
+import { Icon } from '../../../shared/icon/icon';
 
 export interface ShareFile {
   id: string;
@@ -22,7 +23,7 @@ const day = 24 * 60 * 60 * 1000;
 /** Dialog „An Partner freigeben“: Partner, Titel, Nachricht und Ablauf. */
 @Component({
   selector: 'app-share-dialog',
-  imports: [DxPopupModule, DxTagBoxModule, DxTextBoxModule, DxTextAreaModule, DxDateBoxModule],
+  imports: [DxPopupModule, DxTagBoxModule, DxTextBoxModule, DxTextAreaModule, DxDateBoxModule, Icon],
   templateUrl: './share-dialog.html',
   styleUrl: './share-dialog.scss',
 })
@@ -54,7 +55,7 @@ export class ShareDialog {
 
   readonly cancelButtonOptions = {
     text: 'Abbrechen',
-    stylingMode: 'outlined',
+    stylingMode: 'contained',
     onClick: () => this.close(false),
   };
 

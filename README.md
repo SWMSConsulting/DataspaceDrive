@@ -67,6 +67,13 @@ npm ci
 npm start
 ```
 
+Design:
+- Die Oberfläche folgt der hellen oder dunklen Darstellung des Systems.
+- Farben, Schrift, Radien und Schatten stehen als Tokens in `src/styles.scss`; Komponenten verwenden nur die Tokens.
+- DevExtreme läuft mit dem Fluent-Theme, übersetzt aus den SCSS-Quellen mit denselben Farben (`src/themes/_dx-light.scss`, `src/themes/_dx-dark.scss`). Hell und Dunkel liegen je in einer `prefers-color-scheme`-Media-Query.
+- Einheitliche Vorgaben für Tabellen und Dialoge setzt `src/app/core/devextreme-defaults.ts`. Die Seiten importieren die Datei selbst, damit Tabelle und Dialog nicht ins initiale Bundle wandern.
+- Die Navigation nutzt Linien-Icons nach Lucide (ISC-Lizenz) in `src/app/shared/icon`; das Logo liegt in `public/brand.svg`.
+
 Konventionen:
 - Komponenten mit getrennten `.ts`, `.html` und `.scss`.
 - UI-Texte auf Deutsch.

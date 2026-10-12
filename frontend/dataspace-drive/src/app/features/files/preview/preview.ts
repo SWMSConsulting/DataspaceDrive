@@ -42,7 +42,7 @@ export class Preview {
   readonly downloadButtonOptions = {
     text: 'Herunterladen',
     icon: 'download',
-    stylingMode: 'outlined',
+    stylingMode: 'contained',
     onClick: () => {
       const file = this.file();
       if (file) {

@@ -1,15 +1,21 @@
-<div class="page-header">
-  <h1 class="page-title">Aktivität</h1>
-  <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
-</div>
-<p class="hint">Die letzten 1000 Einträge des Protokolls: Anmeldungen, Dateien, Freigaben, Abrufe durch Partner und der Eingang.</p>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Aktivität</h1>
+    <p class="page-subtitle">Die letzten 1000 Einträge des Protokolls: Anmeldungen, Dateien, Freigaben, Abrufe durch Partner und der Eingang.</p>
+  </div>
+  <div class="page-actions">
+    <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+  </div>
+</header>
 
-<dx-data-grid [dataSource]="entries()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" [height]="640" noDataText="Keine Einträge.">
-  <dxo-filter-row [visible]="true"></dxo-filter-row>
-  <dxo-paging [pageSize]="50"></dxo-paging>
-  <dxi-column dataField="occurredAt" caption="Zeit" dataType="datetime" sortOrder="desc" [width]="160"></dxi-column>
-  <dxi-column caption="Wer" [calculateCellValue]="formatActor" [width]="160"></dxi-column>
-  <dxi-column dataField="action" caption="Aktion" [width]="200"></dxi-column>
-  <dxi-column dataField="targetType" caption="Objekt" [width]="120"></dxi-column>
-  <dxi-column dataField="details" caption="Details"></dxi-column>
-</dx-data-grid>
+<section class="card">
+  <dx-data-grid [dataSource]="entries()" keyExpr="id" [wordWrapEnabled]="true" [height]="'calc(100dvh - 250px)'" noDataText="Keine Einträge.">
+    <dxo-filter-row [visible]="true"></dxo-filter-row>
+    <dxo-paging [pageSize]="50"></dxo-paging>
+    <dxi-column dataField="occurredAt" caption="Zeit" dataType="datetime" sortOrder="desc" [width]="160"></dxi-column>
+    <dxi-column caption="Wer" [calculateCellValue]="formatActor" [width]="170"></dxi-column>
+    <dxi-column dataField="action" caption="Aktion" [width]="210" cssClass="mono"></dxi-column>
+    <dxi-column dataField="targetType" caption="Objekt" [width]="130"></dxi-column>
+    <dxi-column dataField="details" caption="Details"></dxi-column>
+  </dx-data-grid>
+</section>

@@ -230,6 +230,45 @@ export function deliveryLabel(state: DeliveryState): string {
   return deliveryLabels[state] ?? state;
 }
 
+/** Farbstufe eines Zustands für die Status-Pille; die Bedeutung trägt immer der Text daneben. */
+export type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'progress';
+
+const deliveryTones: Record<DeliveryState, Tone> = {
+  Requested: 'warning',
+  Provisioning: 'progress',
+  ProvisioningFailed: 'danger',
+  Rejected: 'danger',
+  Active: 'success',
+  Revoking: 'progress',
+  Revoked: 'neutral',
+  Expiring: 'progress',
+  Expired: 'neutral',
+};
+
+const offerTones: Record<IncomingOfferState, Tone> = {
+  New: 'info',
+  Accepted: 'progress',
+  Negotiating: 'progress',
+  AwaitingTransfer: 'progress',
+  Downloading: 'progress',
+  Verifying: 'progress',
+  Scanning: 'progress',
+  Completed: 'success',
+  Declined: 'neutral',
+  Withdrawn: 'neutral',
+  Expired: 'neutral',
+  Failed: 'danger',
+  Quarantined: 'danger',
+};
+
+export function deliveryTone(state: DeliveryState): Tone {
+  return deliveryTones[state] ?? 'neutral';
+}
+
+export function offerTone(state: IncomingOfferState): Tone {
+  return offerTones[state] ?? 'neutral';
+}
+
 export function offerLabel(state: IncomingOfferState): string {
   return offerLabels[state] ?? state;
 }

@@ -1,13 +1,12 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
-import { DxDrawerModule } from 'devextreme-angular/ui/drawer';
-import { DxListModule } from 'devextreme-angular/ui/list';
-import { DxToolbarModule } from 'devextreme-angular/ui/toolbar';
-import { ItemClickEvent } from 'devextreme/ui/list';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
 
 import { AuthService, Me } from '../core/auth.service';
-import { NotificationService, NotificationSummary } from '../core/notification.service';
 import { ConfigService } from '../core/config.service';
+import { NotificationService, NotificationSummary } from '../core/notification.service';
+import { Icon } from '../shared/icon/icon';
 
 interface NavItem {
   text: string;
@@ -15,82 +14,102 @@ interface NavItem {
   path: string;
   /** Sichtbar nur, wenn die Bedingung für den angemeldeten Nutzer gilt. */
   visible?: (me: Me) => boolean;
-  /** Zähler offener Arbeit hinter dem Text. */
+  /** Zähler offener Arbeit als Badge. */
   count?: (s: NotificationSummary) => number | null;
 }
 
-const allNavItems: NavItem[] = [
-  { text: 'Dateien', icon: 'folder', path: '/files' },
-  { text: 'Papierkorb', icon: 'trash', path: '/trash' },
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
   {
-    text: 'Von mir geteilt',
-    icon: 'share',
-    path: '/shares',
-    visible: (me) => me.canShareExternally || me.isAdmin,
-    count: (s) => s.deliveriesFailed,
+    title: 'Ablage',
+    items: [
+      { text: 'Dateien', icon: 'folder', path: '/files' },
+      { text: 'Papierkorb', icon: 'trash', path: '/trash' },
+    ],
   },
   {
-    text: 'Eingang',
-    icon: 'download',
-    path: '/inbox',
-    visible: (me) => me.canManageInbox || me.isAdmin,
-    count: (s) => (s.inboxNew ?? 0) + (s.inboxAttention ?? 0),
+    title: 'Austausch',
+    items: [
+      {
+        text: 'Von mir geteilt',
+        icon: 'send',
+        path: '/shares',
+        visible: (me) => me.canShareExternally || me.isAdmin,
+        count: (s) => s.deliveriesFailed,
+      },
+      {
+        text: 'Eingang',
+        icon: 'inbox',
+        path: '/inbox',
+        visible: (me) => me.canManageInbox || me.isAdmin,
+        count: (s) => (s.inboxNew ?? 0) + (s.inboxAttention ?? 0),
+      },
+      { text: 'Freigaben prüfen', icon: 'shield', path: '/approvals', visible: (me) => me.canApprove, count: (s) => s.approvalsPending },
+    ],
   },
-  { text: 'Freigaben prüfen', icon: 'check', path: '/approvals', visible: (me) => me.canApprove, count: (s) => s.approvalsPending },
-  { text: 'Partner', icon: 'group', path: '/partners', visible: (me) => me.isAdmin },
-  { text: 'Aktivität', icon: 'clock', path: '/activity', visible: (me) => me.isAdmin },
-  { text: 'Verwaltung', icon: 'preferences', path: '/admin', visible: (me) => me.isAdmin },
-  { text: 'Einstellungen', icon: 'toolbox', path: '/settings' },
+  {
+    title: 'Organisation',
+    items: [
+      { text: 'Partner', icon: 'building', path: '/partners', visible: (me) => me.isAdmin },
+      { text: 'Aktivität', icon: 'activity', path: '/activity', visible: (me) => me.isAdmin },
+      { text: 'Verwaltung', icon: 'sliders', path: '/admin', visible: (me) => me.isAdmin },
+    ],
+  },
 ];
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, DxDrawerModule, DxToolbarModule, DxListModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })
 export class Shell {
-  private readonly router = inject(Router);
   private readonly configService = inject(ConfigService);
-  readonly auth = inject(AuthService);
   private readonly notifications = inject(NotificationService);
+  readonly auth = inject(AuthService);
 
-  readonly drawerOpen = signal(true);
-  readonly participant = computed(() => this.configService.config()?.bpn ?? '');
+  /** Navigation auf schmalen Bildschirmen ausgeklappt. */
+  readonly navOpen = signal(false);
 
-  readonly navItems = computed(() => {
+  readonly organization = computed(() => {
+    const config = this.configService.config();
+    return config?.organization || config?.bpn || '';
+  });
+
+  readonly initials = computed(() => {
+    const parts = (this.auth.me()?.name ?? '').split(/\s+/).filter(Boolean);
+    return parts.slice(0, 2).map((p) => p[0]!.toUpperCase()).join('') || '?';
+  });
+
+  readonly userDetail = computed(() => this.auth.me()?.email || this.configService.config()?.bpn || '');
+
+  readonly groups = computed(() => {
     const me = this.auth.me();
     const summary = this.notifications.summary();
-    return allNavItems
-      .filter((item) => !item.visible || (me !== null && item.visible(me)))
-      .map((item) => {
-        const count = summary && item.count ? (item.count(summary) ?? 0) : 0;
-        return { ...item, text: count > 0 ? `${item.text} (${count})` : item.text };
-      });
+    return navGroups
+      .map((group) => ({
+        title: group.title,
+        items: group.items
+          .filter((item) => !item.visible || (me !== null && item.visible(me)))
+          .map((item) => ({ ...item, badge: summary && item.count ? (item.count(summary) ?? 0) : 0 })),
+      }))
+      .filter((group) => group.items.length > 0);
   });
 
   constructor() {
     void this.notifications.refresh();
-  }
-
-  readonly menuButtonOptions = {
-    icon: 'menu',
-    stylingMode: 'text',
-    onClick: () => this.drawerOpen.update((open) => !open),
-  };
-
-  readonly logoutButtonOptions = {
-    icon: 'runner',
-    text: 'Abmelden',
-    stylingMode: 'text',
-    onClick: () => this.auth.logout(),
-  };
-
-  onNavItemClick(e: ItemClickEvent<NavItem>): void {
-    const item = e.itemData;
-    if (item?.path) {
-      this.router.navigateByUrl(item.path);
-      void this.notifications.refresh();
-    }
+    inject(Router)
+      .events.pipe(
+        filter((e) => e instanceof NavigationEnd),
+        takeUntilDestroyed(inject(DestroyRef)),
+      )
+      .subscribe(() => {
+        this.navOpen.set(false);
+        void this.notifications.refresh();
+      });
   }
 }

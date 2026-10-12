@@ -1,31 +1,67 @@
-<div class="page-header">
-  <h1 class="page-title">Einstellungen</h1>
-</div>
+<header class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Einstellungen</h1>
+    <p class="page-subtitle">Ihre Benachrichtigungen und die Koordinaten dieser Instanz im Dataspace.</p>
+  </div>
+</header>
 
-<h2 class="section-title">Benachrichtigungen</h2>
-<dx-check-box
-  text="E-Mails bei neuen Angeboten, Prüfanfragen, Prüfentscheidungen, Abrufen durch Partner und abgeschlossenen Übernahmen"
-  [value]="auth.me()?.emailNotifications ?? true"
-  (onValueChanged)="setEmailNotifications($event.value)"
-></dx-check-box>
-<p class="hint">Welche E-Mails Sie bekommen, hängt von Ihren Rollen ab. Ohne konfigurierten Mailserver verschickt die Drive keine E-Mails.</p>
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title">Benachrichtigungen</h2>
+  </div>
+  <div class="settings-list">
+    <div class="settings-row">
+      <div class="settings-row-text">
+        <div class="settings-row-title">E-Mail-Hinweise</div>
+        <div class="settings-row-detail">
+          Bei neuen Angeboten, Prüfanfragen und -entscheidungen, Abrufen durch Partner und abgeschlossenen Übernahmen. Welche E-Mails Sie
+          bekommen, hängt von Ihren Rollen ab.
+        </div>
+      </div>
+      <dx-switch
+        [elementAttr]="{ 'aria-label': 'E-Mail-Hinweise' }"
+        [value]="auth.me()?.emailNotifications ?? true"
+        (onValueChanged)="setEmailNotifications($event.value)"
+      ></dx-switch>
+    </div>
+  </div>
+  <p class="form-hint">Ohne konfigurierten Mailserver verschickt die Drive keine E-Mails.</p>
+</section>
 
-<h2 class="section-title">Instanz</h2>
-<p class="hint">Koordinaten dieser Instanz im Dataspace. Sie werden beim Deployment festgelegt.</p>
+<section class="section">
+  <div class="section-header">
+    <div>
+      <h2 class="section-title">Instanz</h2>
+      <p class="section-subtitle">Koordinaten dieser Instanz im Dataspace. Sie werden beim Deployment festgelegt.</p>
+    </div>
+  </div>
 
-@if (unavailable()) {
-  <p class="error">Die Konfiguration konnte nicht geladen werden.</p>
-} @else if (config(); as c) {
-  <dl class="config">
-    <dt>Teilnehmer (DID)</dt>
-    <dd>{{ c.participantId || '–' }}</dd>
-    <dt>BPN</dt>
-    <dd>{{ c.bpn || '–' }}</dd>
-    <dt>DSP-Adresse</dt>
-    <dd>{{ c.dspAddress || '–' }}</dd>
-    <dt>EDC-Versionsprofil</dt>
-    <dd>{{ c.edcProfile || '–' }}</dd>
-  </dl>
-} @else {
-  <p class="hint">Wird geladen …</p>
-}
+  @if (unavailable()) {
+    <p class="error-text">Die Konfiguration konnte nicht geladen werden.</p>
+  } @else if (config(); as c) {
+    <div class="settings-list">
+      <div class="settings-row">
+        <span class="settings-row-title">Unternehmen</span>
+        <span class="settings-row-value">{{ c.organization || '–' }}</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-title">Teilnehmer (DID)</span>
+        <span class="settings-row-value mono">{{ c.participantId || '–' }}</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-title">BPN</span>
+        <span class="settings-row-value mono">{{ c.bpn || '–' }}</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-title">DSP-Adresse</span>
+        <span class="settings-row-value mono">{{ c.dspAddress || '–' }}</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-title">EDC-Versionsprofil</span>
+        <span class="settings-row-value mono">{{ c.edcProfile || '–' }}</span>
+      </div>
+    </div>
+  } @else {
+    <p class="hint">Wird geladen …</p>
+  }
+</section>

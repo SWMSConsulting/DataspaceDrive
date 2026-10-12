@@ -11,6 +11,7 @@ import notify from 'devextreme/ui/notify';
 import { AdminApiService, AutoAcceptMode, PartnerInfo, PartnerRequest } from '../../core/admin-api.service';
 import { errorText } from '../../core/drive-api.service';
 import { FolderNode, FolderPicker } from '../../shared/folder-picker/folder-picker';
+import '../../core/devextreme-defaults';
 
 const emptyDraft: PartnerRequest = {
   bpn: '',
@@ -55,7 +56,7 @@ export class Partners {
 
   readonly cancelButtonOptions = {
     text: 'Abbrechen',
-    stylingMode: 'outlined',
+    stylingMode: 'contained',
     onClick: () => this.editorVisible.set(false),
   };
 
@@ -144,11 +145,17 @@ export class Partners {
         ? 'Aktualisierungen'
         : 'aus';
 
-  /** Benachrichtigung über den Dataspace: gesendet (wir an den Partner) und empfangen (Partner an uns). */
-  formatNotify = (row: PartnerInfo): string => {
-    const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '–');
-    return `gesendet ${fmt(row.lastNotifiedAt)}, empfangen ${fmt(row.lastNotificationReceivedAt)}${row.notifyError ? ' · ' + row.notifyError : ''}`;
+  statusTone = (row: PartnerInfo): string => {
+    if (row.blocked) {
+      return 'warning';
+    }
+    if (row.resolveError) {
+      return 'danger';
+    }
+    return row.did ? 'success' : 'neutral';
   };
+  formatTime = (iso: string | null): string =>
+    iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '–';
 
   onFolderSelected(folder: FolderNode | null): void {
     this.update('autoAcceptFolderId', folder?.id ?? null);
