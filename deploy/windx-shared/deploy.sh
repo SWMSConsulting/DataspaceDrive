@@ -141,7 +141,7 @@ echo "== Zugangsdaten lokal ablegen"
   for p in $PARTICIPANTS; do
     echo "## $(display_name "$p") - https://drive-$p-windx.cluster.swms-cloud.com"
     echo "- $p.nutzer / $(secret_value "$NS" windx-shared-secrets "$p-user-password") (drive-user, drive-external-share, drive-inbox)"
-    echo "- $p.admin / $(secret_value "$NS" windx-shared-secrets "$p-admin-password") (drive-user, drive-admin)"
+    echo "- $p.admin / $(secret_value "$NS" windx-shared-secrets "$p-admin-password") (drive-user, drive-admin, drive-approver)"
     echo
   done
 } > "$HERE/zugangsdaten.local.md"

@@ -253,7 +253,7 @@ class Exchange:
         for share_id in self.shares:
             self.a_user.call("POST", f"/api/shares/{share_id}/revoke")
         wait_for("alle Freigaben beendet", lambda: all(
-            d["state"] in ("Revoked", "Expired") for s in self.shares for d in self.share_state(s)["deliveries"]), 180)
+            d["state"] in ("Revoked", "Expired", "Rejected") for s in self.shares for d in self.share_state(s)["deliveries"]), 180)
         for client, files in ((self.a_user, self.sender_files), (self.b_user, self.received_files)):
             for file_id in files:
                 client.call("DELETE", f"/api/items/{file_id}", expect=(200, 204, 404))
