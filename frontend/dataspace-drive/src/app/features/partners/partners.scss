@@ -1,3 +1,17 @@
 :host {
   display: block;
 }
+
+.field-label {
+  display: block;
+  margin: 12px 0 4px;
+  color: #616161;
+  font-size: 13px;
+}
+
+.flags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}

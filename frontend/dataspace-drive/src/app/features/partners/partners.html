@@ -1,6 +1,55 @@
-<app-planned-feature
-  heading="Partner"
-  phase="Phase 2"
-  description="Unternehmen im Dataspace, an die Sie freigeben oder von denen Sie empfangen."
-  [items]="items"
-/>
+<div class="page-header">
+  <h1 class="page-title">Partner</h1>
+  <dx-button text="Partner anlegen" icon="add" type="default" (onClick)="openCreate()"></dx-button>
+  <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+</div>
+<p class="hint">
+  Unternehmen im Dataspace, mit denen Dateien ausgetauscht werden. Die DID löst der eigene Connector über das BDRS auf; die DSP-Adresse
+  stammt vom Partner. Gesperrte Partner erhalten nichts mehr und werden nicht mehr abgefragt.
+</p>
+
+<dx-data-grid [dataSource]="partners()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" noDataText="Noch keine Partner.">
+  <dxi-column dataField="name" caption="Name" [width]="170" sortOrder="asc"></dxi-column>
+  <dxi-column dataField="bpn" caption="BPN" [width]="160"></dxi-column>
+  <dxi-column dataField="dspAddress" caption="DSP-Adresse"></dxi-column>
+  <dxi-column dataField="did" caption="DID"></dxi-column>
+  <dxi-column caption="Status" [calculateCellValue]="formatStatus" [width]="120"></dxi-column>
+  <dxi-column caption="Austausch" [calculateCellValue]="formatFlags" [width]="140"></dxi-column>
+  <dxi-column dataField="lastPolledAt" caption="Zuletzt abgefragt" dataType="datetime" [width]="150"></dxi-column>
+  <dxi-column caption="Fehler" [calculateCellValue]="formatError"></dxi-column>
+  <dxi-column caption="" [width]="260" cellTemplate="actions"></dxi-column>
+  <div *dxTemplate="let cell of 'actions'">
+    <dx-button text="Bearbeiten" stylingMode="text" (onClick)="openEdit(cell.data)"></dx-button>
+    <dx-button text="Prüfen" stylingMode="text" (onClick)="resolve(cell.data)"></dx-button>
+    <dx-button text="Löschen" stylingMode="text" type="danger" (onClick)="remove(cell.data)"></dx-button>
+  </div>
+</dx-data-grid>
+
+<dx-popup [visible]="editorVisible()" (onHidden)="editorVisible.set(false)" [title]="editorTitle()" [width]="560" height="auto" [showCloseButton]="true">
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="saveButtonOptions"></dxi-popup-toolbar-item>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="cancelButtonOptions"></dxi-popup-toolbar-item>
+  <div *dxTemplate="let data of 'content'">
+    <label class="field-label" for="partner-bpn">BPN</label>
+    <dx-text-box
+      id="partner-bpn"
+      placeholder="BPNL00000000WB02"
+      [readOnly]="editingId() !== null"
+      [value]="draft().bpn"
+      (onValueChanged)="update('bpn', $event.value ?? '')"
+    ></dx-text-box>
+    <label class="field-label" for="partner-name">Name</label>
+    <dx-text-box id="partner-name" [value]="draft().name" (onValueChanged)="update('name', $event.value ?? '')"></dx-text-box>
+    <label class="field-label" for="partner-dsp">DSP-Adresse des Connectors</label>
+    <dx-text-box
+      id="partner-dsp"
+      placeholder="https://partner-edc.example.com/api/v1/dsp"
+      [value]="draft().dspAddress"
+      (onValueChanged)="update('dspAddress', $event.value ?? '')"
+    ></dx-text-box>
+    <div class="flags">
+      <dx-check-box text="An diesen Partner freigeben" [value]="draft().sharingEnabled" (onValueChanged)="update('sharingEnabled', $event.value)"></dx-check-box>
+      <dx-check-box text="Eingang von diesem Partner abfragen" [value]="draft().receivingEnabled" (onValueChanged)="update('receivingEnabled', $event.value)"></dx-check-box>
+      <dx-check-box text="Gesperrt" [value]="draft().blocked" (onValueChanged)="update('blocked', $event.value)"></dx-check-box>
+    </div>
+  </div>
+</dx-popup>

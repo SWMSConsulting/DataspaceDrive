@@ -1,6 +1,84 @@
-<app-planned-feature
-  heading="Eingang"
-  phase="Phase 2"
-  description="Angebote, die Partner an Ihr Unternehmen zugestellt haben. Nach der Annahme wird die Datei übertragen, geprüft und abgelegt."
-  [items]="items"
-/>
+<div class="page-header">
+  <h1 class="page-title">Eingang</h1>
+  <dx-button text="Jetzt prüfen" icon="refresh" (onClick)="checkNow()"></dx-button>
+  <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+</div>
+<p class="hint">
+  Dateien, die Partnerunternehmen an dieses Unternehmen freigegeben haben. Nach der Annahme werden sie über den Dataspace abgerufen, gegen
+  die Prüfsumme des Absenders geprüft, auf Viren untersucht und im gewählten Ordner abgelegt.
+</p>
+
+<dx-data-grid [dataSource]="offers()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" noDataText="Keine Angebote.">
+  <dxo-master-detail [enabled]="true" template="items"></dxo-master-detail>
+  <dxi-column dataField="firstSeenAt" caption="Eingang" dataType="datetime" sortOrder="desc" [width]="150"></dxi-column>
+  <dxi-column caption="Von" [calculateCellValue]="formatFrom" [width]="180"></dxi-column>
+  <dxi-column dataField="title" caption="Titel"></dxi-column>
+  <dxi-column caption="Dateien" [calculateCellValue]="formatFiles" [width]="180"></dxi-column>
+  <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="100" alignment="right"></dxi-column>
+  <dxi-column dataField="expiresAt" caption="Abrufbar bis" dataType="date" [width]="110"></dxi-column>
+  <dxi-column caption="Status" [calculateCellValue]="formatState" [width]="170"></dxi-column>
+  <dxi-column caption="" [width]="220" cellTemplate="actions"></dxi-column>
+  <div *dxTemplate="let cell of 'actions'">
+    @if (canDecide() && cell.data.state === 'New') {
+      <dx-button text="Annehmen" stylingMode="text" type="default" (onClick)="startAccept(cell.data)"></dx-button>
+      <dx-button text="Ablehnen" stylingMode="text" type="danger" (onClick)="decline(cell.data)"></dx-button>
+    }
+    @if (canDecide() && cell.data.state === 'Failed') {
+      <dx-button text="Erneut versuchen" stylingMode="text" (onClick)="retry(cell.data)"></dx-button>
+    }
+  </div>
+
+  <div *dxTemplate="let detail of 'items'">
+    @if (detail.data.message) {
+      <p class="message">„{{ detail.data.message }}“</p>
+    }
+    @if (detail.data.error) {
+      <p class="error">{{ detail.data.error }}</p>
+    }
+    @if (detail.data.targetPath) {
+      <p class="meta">
+        Ziel: {{ detail.data.targetPath }}
+        @if (detail.data.decidedByName) {
+          · angenommen von {{ detail.data.decidedByName }}
+        }
+      </p>
+    }
+    <dx-data-grid [dataSource]="detail.data.items" keyExpr="itemKey" [showBorders]="true">
+      <dxi-column dataField="name" caption="Datei"></dxi-column>
+      <dxi-column caption="Größe" [calculateCellValue]="formatSize2" [width]="100" alignment="right"></dxi-column>
+      <dxi-column caption="Übertragen" [calculateCellValue]="formatItemProgress" [width]="100" alignment="right"></dxi-column>
+      <dxi-column caption="Prüfung" [calculateCellValue]="formatItemScan" [width]="130"></dxi-column>
+      <dxi-column dataField="sha256" caption="SHA-256" [width]="200"></dxi-column>
+    </dx-data-grid>
+  </div>
+</dx-data-grid>
+
+<dx-popup
+  [visible]="acceptOffer() !== null"
+  (onHidden)="acceptOffer.set(null)"
+  title="Annehmen: Zielordner wählen"
+  [width]="520"
+  [height]="520"
+  [showCloseButton]="true"
+>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="acceptButtonOptions"></dxi-popup-toolbar-item>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="cancelButtonOptions"></dxi-popup-toolbar-item>
+  <div *dxTemplate="let data of 'content'">
+    <p class="meta">„{{ acceptOffer()?.title }}“ von {{ acceptOffer()?.partnerName }}</p>
+    @if (acceptOffer()) {
+      <dx-tree-view
+        dataStructure="plain"
+        keyExpr="id"
+        displayExpr="text"
+        parentIdExpr="parentId"
+        hasItemsExpr="hasItems"
+        selectionMode="single"
+        [selectByClick]="true"
+        [createChildren]="createChildren"
+        [height]="340"
+        (onItemSelectionChanged)="onFolderSelected($event)"
+      ></dx-tree-view>
+    }
+    <p class="meta">Ziel: {{ target()?.path ?? 'noch nicht gewählt' }}</p>
+  </div>
+</dx-popup>

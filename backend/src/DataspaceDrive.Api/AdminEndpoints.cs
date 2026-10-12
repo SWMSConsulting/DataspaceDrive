@@ -1,5 +1,6 @@
 using DataspaceDrive.Api.Auth;
 using DataspaceDrive.Core.Access;
+using DataspaceDrive.Core.Audit;
 
 namespace DataspaceDrive.Api;
 
@@ -30,6 +31,9 @@ public static class AdminEndpoints
 
         admin.MapGet("/users", async (CurrentUser current, ITeamSpaceService spaces, CancellationToken ct) =>
             await spaces.KnownUsersAsync(await current.PrincipalAsync(ct), ct));
+
+        admin.MapGet("/audit", async (int? take, CurrentUser current, IAuditService audit, CancellationToken ct) =>
+            await audit.RecentAsync(await current.PrincipalAsync(ct), take ?? 500, ct));
 
         return endpoints;
     }

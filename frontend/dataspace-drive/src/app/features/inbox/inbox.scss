@@ -1,3 +1,19 @@
 :host {
   display: block;
 }
+
+.message {
+  margin: 0 0 8px;
+  color: #424242;
+  font-style: italic;
+}
+
+.meta {
+  margin: 0 0 8px;
+  color: #616161;
+}
+
+.error {
+  margin: 0 0 8px;
+  color: #c62828;
+}

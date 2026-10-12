@@ -8,6 +8,8 @@ using DataspaceDrive.Core.Storage;
 using DataspaceDrive.Infrastructure.Files;
 using DataspaceDrive.Infrastructure.Persistence;
 using DataspaceDrive.Infrastructure.Scanning;
+using DataspaceDrive.Core.Audit;
+using DataspaceDrive.Infrastructure.Audit;
 using DataspaceDrive.Infrastructure.Inbox;
 using DataspaceDrive.Infrastructure.Partners;
 using DataspaceDrive.Infrastructure.Sharing;
@@ -63,6 +65,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IPartnerService, PartnerService>();
         services.AddScoped<IShareService, ShareService>();
         services.AddScoped<IInboxService, InboxService>();
+        services.AddScoped<IAuditService, AuditService>();
         services.AddSingleton<InboxPoller>();
         services.AddSingleton<IInboxRefresh>(sp => sp.GetRequiredService<InboxPoller>());
         services.AddHostedService<DeliveryWorker>();

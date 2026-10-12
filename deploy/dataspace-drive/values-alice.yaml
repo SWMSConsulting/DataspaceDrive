@@ -6,6 +6,7 @@ participant:
   id: "did:web:alice-windx.cluster.swms-cloud.com"
   bpn: "BPNL00000000WA01"
   dspAddress: "https://alice-edc-windx.cluster.swms-cloud.com/api/v1/dsp"
+  organization: "Alice (windx-Demo)"
 
 edc:
   managementUrl: "http://alice-edc-controlplane:8081/management"

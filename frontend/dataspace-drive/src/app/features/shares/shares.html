@@ -1,6 +1,73 @@
-<app-planned-feature
-  heading="Von mir geteilt"
-  phase="Phase 2"
-  description="Freigaben an Partnerunternehmen über den Dataspace. Jede Freigabe wird ein EDC-Angebot, das nur der adressierte Partner sieht."
-  [items]="items"
-/>
+<div class="page-header">
+  <h1 class="page-title">Von mir geteilt</h1>
+  <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+  @if (auth.me()?.isAdmin) {
+    <dx-check-box text="Alle Freigaben (Verwaltung)" [value]="showAll()" (onValueChanged)="toggleAll($event.value)"></dx-check-box>
+  }
+</div>
+<p class="hint">
+  Jede Freigabe wird je Partner als eigenes Angebot im Connector bereitgestellt. Ein Widerruf sperrt den Abruf sofort und zieht den Vertrag
+  im Connector zurück.
+</p>
+
+<dx-data-grid [dataSource]="shares()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" noDataText="Noch nichts geteilt.">
+  <dxo-master-detail [enabled]="true" template="deliveries"></dxo-master-detail>
+  <dxi-column dataField="title" caption="Titel" [width]="200"></dxi-column>
+  <dxi-column caption="Dateien" [calculateCellValue]="formatFiles"></dxi-column>
+  <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="100" alignment="right"></dxi-column>
+  <dxi-column caption="Empfänger" [calculateCellValue]="formatRecipients"></dxi-column>
+  <dxi-column dataField="createdAt" caption="Geteilt" dataType="datetime" sortOrder="desc" [width]="150"></dxi-column>
+  <dxi-column dataField="expiresAt" caption="Abrufbar bis" dataType="date" [width]="110"></dxi-column>
+  @if (showAll()) {
+    <dxi-column dataField="createdByName" caption="Von" [width]="140"></dxi-column>
+  }
+  <dxi-column caption="" [width]="130" cellTemplate="shareActions"></dxi-column>
+  <div *dxTemplate="let cell of 'shareActions'">
+    @if (canRevokeShare(cell.data)) {
+      <dx-button text="Alle widerrufen" stylingMode="text" type="danger" (onClick)="revokeShare(cell.data)"></dx-button>
+    }
+  </div>
+
+  <div *dxTemplate="let detail of 'deliveries'">
+    @if (detail.data.message) {
+      <p class="message">„{{ detail.data.message }}“</p>
+    }
+    <dx-data-grid [dataSource]="detail.data.deliveries" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true">
+      <dxi-column dataField="partnerName" caption="Partner" [width]="180"></dxi-column>
+      <dxi-column dataField="recipientBpn" caption="BPN" [width]="160"></dxi-column>
+      <dxi-column caption="Status" [calculateCellValue]="formatState" [width]="150"></dxi-column>
+      <dxi-column dataField="retrievalCount" caption="Abrufe" [width]="80" alignment="right"></dxi-column>
+      <dxi-column dataField="lastRetrievalAt" caption="Letzter Abruf" dataType="datetime" [width]="150"></dxi-column>
+      <dxi-column dataField="lastError" caption="Fehler"></dxi-column>
+      <dxi-column caption="" [width]="300" cellTemplate="deliveryActions"></dxi-column>
+      <div *dxTemplate="let row of 'deliveryActions'">
+        <dx-button text="Abrufprotokoll" stylingMode="text" (onClick)="showRetrievals(row.data)"></dx-button>
+        @if (row.data.state === 'ProvisioningFailed') {
+          <dx-button text="Erneut anlegen" stylingMode="text" (onClick)="retryDelivery(row.data)"></dx-button>
+        }
+        @if (canRevoke(row.data)) {
+          <dx-button text="Widerrufen" stylingMode="text" type="danger" (onClick)="revokeDelivery(row.data)"></dx-button>
+        }
+      </div>
+    </dx-data-grid>
+  </div>
+</dx-data-grid>
+
+<dx-popup
+  [visible]="retrievals() !== null"
+  (onHidden)="retrievals.set(null)"
+  [title]="retrievalsTitle()"
+  [width]="820"
+  [height]="520"
+  [showCloseButton]="true"
+>
+  <div *dxTemplate="let data of 'content'">
+    <dx-data-grid [dataSource]="retrievals() ?? []" [showBorders]="true" [height]="420" noDataText="Noch keine Abrufe.">
+      <dxi-column dataField="occurredAt" caption="Zeit" dataType="datetime" [width]="160"></dxi-column>
+      <dxi-column caption="Ergebnis" [calculateCellValue]="formatDecision" [width]="160"></dxi-column>
+      <dxi-column dataField="consumerBpn" caption="Empfänger (BPN)" [width]="160"></dxi-column>
+      <dxi-column dataField="itemKey" caption="Datei" [width]="60"></dxi-column>
+      <dxi-column caption="Abschnitt" [calculateCellValue]="formatRange"></dxi-column>
+    </dx-data-grid>
+  </div>
+</dx-popup>

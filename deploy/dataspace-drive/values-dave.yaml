@@ -6,6 +6,7 @@ participant:
   id: "did:web:dave-windx.cluster.swms-cloud.com"
   bpn: "BPNL00000000WD04"
   dspAddress: "https://dave-edc-windx.cluster.swms-cloud.com/api/v1/dsp"
+  organization: "Dave (windx-Demo)"
 
 edc:
   managementUrl: "http://dave-edc-controlplane:8081/management"

@@ -45,5 +45,12 @@
   [upload]="upload()"
   [itemView]="itemView"
   [height]="560"
+  [toolbar]="toolbar()"
+  [contextMenu]="contextMenu()"
   (onCurrentDirectoryChanged)="onCurrentDirectoryChanged($event)"
+  (onSelectionChanged)="onSelectionChanged($event)"
+  (onContextMenuItemClick)="onMenuItemClick($event)"
+  (onToolbarItemClick)="onMenuItemClick($event)"
 ></dx-file-manager>
+
+<app-share-dialog [files]="shareFiles()" (closed)="shareFiles.set(null)" />

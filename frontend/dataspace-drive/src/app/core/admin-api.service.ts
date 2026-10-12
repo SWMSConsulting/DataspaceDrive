@@ -21,6 +21,42 @@ export interface TeamSpace {
   acl: AclEntry[];
   fileCount: number;
   storedBytes: number;
+  externalSharingAllowed: boolean;
+}
+
+export interface PartnerInfo {
+  id: string;
+  bpn: string;
+  name: string;
+  dspAddress: string;
+  did: string | null;
+  protocol: string | null;
+  resolvedAt: string | null;
+  resolveError: string | null;
+  sharingEnabled: boolean;
+  receivingEnabled: boolean;
+  blocked: boolean;
+  lastPolledAt: string | null;
+  lastPollError: string | null;
+}
+
+export interface PartnerRequest {
+  bpn: string;
+  name: string;
+  dspAddress: string;
+  sharingEnabled: boolean;
+  receivingEnabled: boolean;
+  blocked: boolean;
+}
+
+export interface AuditEntry {
+  id: number;
+  occurredAt: string;
+  actorName: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  details: string | null;
 }
 
 export interface KnownUser {
@@ -40,12 +76,12 @@ export class AdminApiService {
     return firstValueFrom(this.http.get<TeamSpace[]>('/api/admin/spaces'));
   }
 
-  createTeamSpace(name: string, acl: AclEntry[]): Promise<TeamSpace> {
-    return firstValueFrom(this.http.post<TeamSpace>('/api/admin/spaces', { name, acl: acl.map(toRequest) }));
+  createTeamSpace(name: string, acl: AclEntry[], externalSharingAllowed: boolean): Promise<TeamSpace> {
+    return firstValueFrom(this.http.post<TeamSpace>('/api/admin/spaces', { name, acl: acl.map(toRequest), externalSharingAllowed }));
   }
 
-  updateTeamSpace(id: string, name: string, acl: AclEntry[]): Promise<TeamSpace> {
-    return firstValueFrom(this.http.put<TeamSpace>(`/api/admin/spaces/${id}`, { name, acl: acl.map(toRequest) }));
+  updateTeamSpace(id: string, name: string, acl: AclEntry[], externalSharingAllowed: boolean): Promise<TeamSpace> {
+    return firstValueFrom(this.http.put<TeamSpace>(`/api/admin/spaces/${id}`, { name, acl: acl.map(toRequest), externalSharingAllowed }));
   }
 
   deleteTeamSpace(id: string): Promise<void> {
@@ -54,6 +90,30 @@ export class AdminApiService {
 
   knownUsers(): Promise<KnownUser[]> {
     return firstValueFrom(this.http.get<KnownUser[]>('/api/admin/users'));
+  }
+
+  partners(): Promise<PartnerInfo[]> {
+    return firstValueFrom(this.http.get<PartnerInfo[]>('/api/admin/partners'));
+  }
+
+  createPartner(request: PartnerRequest): Promise<PartnerInfo> {
+    return firstValueFrom(this.http.post<PartnerInfo>('/api/admin/partners', request));
+  }
+
+  updatePartner(id: string, request: PartnerRequest): Promise<PartnerInfo> {
+    return firstValueFrom(this.http.put<PartnerInfo>(`/api/admin/partners/${id}`, request));
+  }
+
+  deletePartner(id: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`/api/admin/partners/${id}`));
+  }
+
+  resolvePartner(id: string): Promise<PartnerInfo> {
+    return firstValueFrom(this.http.post<PartnerInfo>(`/api/admin/partners/${id}/resolve`, {}));
+  }
+
+  audit(take = 500): Promise<AuditEntry[]> {
+    return firstValueFrom(this.http.get<AuditEntry[]>('/api/admin/audit', { params: { take } }));
   }
 }
 

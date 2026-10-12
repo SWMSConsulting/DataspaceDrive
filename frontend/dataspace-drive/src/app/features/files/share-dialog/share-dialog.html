@@ -1,0 +1,59 @@
+<dx-popup
+  [visible]="visible()"
+  (onHidden)="close(false)"
+  title="An Partner freigeben"
+  [width]="640"
+  height="auto"
+  [showCloseButton]="true"
+>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="shareButtonOptions"></dxi-popup-toolbar-item>
+  <dxi-popup-toolbar-item widget="dxButton" toolbar="bottom" location="after" [options]="cancelButtonOptions"></dxi-popup-toolbar-item>
+  <div *dxTemplate="let data of 'content'">
+    <ul class="file-list">
+      @for (file of files() ?? []; track file.id) {
+        <li>{{ file.name }}</li>
+      }
+    </ul>
+
+    <label class="field-label" for="share-partners">Partner</label>
+    <dx-tag-box
+      id="share-partners"
+      [items]="targets()"
+      valueExpr="id"
+      [displayExpr]="partnerLabel"
+      [searchEnabled]="true"
+      [showSelectionControls]="true"
+      placeholder="Partner wählen"
+      noDataText="Keine Partner freigeschaltet; bitte die Verwaltung fragen."
+      [value]="partnerIds()"
+      (onValueChanged)="partnerIds.set($event.value ?? [])"
+    ></dx-tag-box>
+
+    <label class="field-label" for="share-title">Titel</label>
+    <dx-text-box id="share-title" [maxLength]="200" [value]="title()" (onValueChanged)="title.set($event.value ?? '')"></dx-text-box>
+
+    <label class="field-label" for="share-message">Nachricht (optional)</label>
+    <dx-text-area
+      id="share-message"
+      [maxLength]="2000"
+      [height]="80"
+      [value]="message()"
+      (onValueChanged)="message.set($event.value ?? '')"
+    ></dx-text-area>
+
+    <label class="field-label" for="share-expires">Abrufbar bis</label>
+    <dx-date-box
+      id="share-expires"
+      type="date"
+      [min]="minDate"
+      [max]="maxDate"
+      [value]="expiresAt()"
+      (onValueChanged)="expiresAt.set($event.value)"
+    ></dx-date-box>
+
+    <p class="privacy">
+      Titel, Nachricht, Dateinamen und Ihr Unternehmen sieht der Partner im Katalog seines Connectors. Personen werden nicht genannt.
+      Jeder Partner sieht nur seine eigene Zustellung.
+    </p>
+  </div>
+</dx-popup>

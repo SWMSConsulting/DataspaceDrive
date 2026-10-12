@@ -17,6 +17,7 @@
   <dxi-column caption="Berechtigungen" [calculateCellValue]="formatAcl"></dxi-column>
   <dxi-column dataField="fileCount" caption="Dateien" [width]="90" alignment="right"></dxi-column>
   <dxi-column caption="Belegung" [calculateCellValue]="formatSize" [width]="110" alignment="right"></dxi-column>
+  <dxi-column caption="Extern teilen" [calculateCellValue]="formatExternal" [width]="110"></dxi-column>
   <dxi-column dataField="createdAt" caption="Angelegt" dataType="date" [width]="110"></dxi-column>
   <dxi-column caption="" [width]="200" cellTemplate="actions"></dxi-column>
   <div *dxTemplate="let cell of 'actions'">
@@ -25,7 +26,7 @@
   </div>
 </dx-data-grid>
 
-<h2 class="section-title planned-title">Geplant (Phase 2)</h2>
+<h2 class="section-title planned-title">Geplant</h2>
 <ul class="planned-list">
   @for (item of plannedItems; track item) {
     <li>{{ item }}</li>
@@ -51,6 +52,13 @@
       [value]="draftName()"
       (onValueChanged)="draftName.set($event.value ?? '')"
     ></dx-text-box>
+
+    <dx-check-box
+      class="external-check"
+      text="Externes Teilen erlaubt: Mitglieder mit der Rolle drive-external-share dürfen Dateien dieses Bereichs an Partner freigeben"
+      [value]="draftExternal()"
+      (onValueChanged)="draftExternal.set($event.value)"
+    ></dx-check-box>
 
     <h3 class="section-title editor-section">Berechtigungen</h3>
     <p class="hint">Rollen und Gruppen kommen aus dem Identity Provider. Nutzer erscheinen hier nach ihrer ersten Anmeldung.</p>

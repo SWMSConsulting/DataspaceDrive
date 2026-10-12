@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { DxButtonModule } from 'devextreme-angular/ui/button';
+import { DxCheckBoxModule } from 'devextreme-angular/ui/check-box';
 import { DxDataGridModule } from 'devextreme-angular/ui/data-grid';
 import { DxPopupModule } from 'devextreme-angular/ui/popup';
 import { DxSelectBoxModule } from 'devextreme-angular/ui/select-box';
@@ -17,7 +18,7 @@ const permissionLabels: Record<TeamPermission, string> = { Read: 'Lesen', Write:
 
 @Component({
   selector: 'app-admin',
-  imports: [DxDataGridModule, DxButtonModule, DxPopupModule, DxSelectBoxModule, DxTextBoxModule],
+  imports: [DxDataGridModule, DxButtonModule, DxCheckBoxModule, DxPopupModule, DxSelectBoxModule, DxTextBoxModule],
   templateUrl: './admin.html',
   styleUrl: './admin.scss',
 })
@@ -31,6 +32,7 @@ export class Admin {
   readonly editingId = signal<string | null>(null);
   readonly draftName = signal('');
   readonly draftAcl = signal<AclEntry[]>([]);
+  readonly draftExternal = signal(false);
   readonly saving = signal(false);
   readonly editorTitle = computed(() => (this.editingId() ? 'Team-Bereich bearbeiten' : 'Team-Bereich anlegen'));
 
@@ -44,7 +46,7 @@ export class Admin {
   readonly roleSuggestions = ['drive-user', 'drive-external-share', 'drive-inbox', 'drive-admin'];
 
   readonly plannedItems = [
-    'Partner und Policy-Profile',
+    'Policy-Profile (CX-Nutzungsbedingungen)',
     'EDC-Status, Abgleich (Reconciliation) und ausstehende Operationen',
     'Quarantäne für verdächtige Dateien',
   ];
@@ -77,11 +79,11 @@ export class Admin {
   }
 
   openCreate(): void {
-    this.openEditor(null, '', []);
+    this.openEditor(null, '', [], false);
   }
 
   openEdit(space: TeamSpace): void {
-    this.openEditor(space.id, space.name, space.acl);
+    this.openEditor(space.id, space.name, space.acl, space.externalSharingAllowed);
   }
 
   onTypeChanged(type: PrincipalType): void {
@@ -129,7 +131,9 @@ export class Admin {
     this.saving.set(true);
     try {
       const id = this.editingId();
-      const saved = id ? await this.api.updateTeamSpace(id, name, this.draftAcl()) : await this.api.createTeamSpace(name, this.draftAcl());
+      const saved = id
+        ? await this.api.updateTeamSpace(id, name, this.draftAcl(), this.draftExternal())
+        : await this.api.createTeamSpace(name, this.draftAcl(), this.draftExternal());
       notify(`„${saved.name}“ wurde gespeichert.`, 'success', 3000);
       this.editorVisible.set(false);
       await this.reload();
@@ -163,11 +167,13 @@ export class Admin {
       : row.acl.map((e) => `${typeLabels[e.principalType]} ${e.displayName}: ${permissionLabels[e.permission]}`).join(' · ');
 
   formatSize = (row: TeamSpace): string => formatBytes(row.storedBytes);
+  formatExternal = (row: TeamSpace): string => (row.externalSharingAllowed ? 'ja' : 'nein');
   formatType = (row: AclEntry): string => typeLabels[row.principalType];
 
-  private openEditor(id: string | null, name: string, acl: AclEntry[]): void {
+  private openEditor(id: string | null, name: string, acl: AclEntry[], external: boolean): void {
     this.editingId.set(id);
     this.draftName.set(name);
+    this.draftExternal.set(external);
     this.draftAcl.set(acl.map((e) => ({ ...e })));
     this.newType.set('Role');
     this.newKey.set(null);

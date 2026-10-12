@@ -10,6 +10,7 @@ export interface SpaceInfo {
   kind: 'Personal' | 'Team';
   rootFolderId: string;
   permission: 'None' | 'Read' | 'Write' | 'Manage';
+  externalSharingAllowed: boolean;
 }
 
 export interface DriveItem {

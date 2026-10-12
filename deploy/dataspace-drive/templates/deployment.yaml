@@ -45,6 +45,21 @@ spec:
               value: {{ .Values.participant.bpn | quote }}
             - name: Drive__Participant__DspAddress
               value: {{ .Values.participant.dspAddress | quote }}
+            - name: Drive__Participant__Organization
+              value: {{ .Values.participant.organization | quote }}
+            # Adresse, unter der die eigene Dataplane den Content-Endpunkt erreicht (steht in jedem Zustell-Asset).
+            - name: Drive__Sharing__ContentBaseUrl
+              value: "http://{{ include "drive.fullname" . }}-edc.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.ports.content }}"
+            - name: Drive__Sharing__InstanceId
+              value: {{ include "drive.fullname" . | quote }}
+            - name: Drive__Sharing__DefaultLifetime
+              value: "{{ int .Values.sharing.defaultLifetimeDays }}.00:00:00"
+            - name: Drive__Sharing__MaxLifetime
+              value: "{{ int .Values.sharing.maxLifetimeDays }}.00:00:00"
+            - name: Drive__Inbox__PollInterval
+              value: {{ .Values.inbox.pollInterval | quote }}
+            - name: Drive__Inbox__SegmentSize
+              value: {{ .Values.inbox.segmentSizeBytes | int64 | quote }}
             - name: Drive__Edc__ManagementUrl
               value: {{ .Values.edc.managementUrl | quote }}
             - name: Drive__Edc__VersionProfile

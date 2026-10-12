@@ -13,6 +13,17 @@ participant:
   id: ""            # DID, z. B. did:web:alice-windx.cluster.swms-cloud.com
   bpn: ""           # BPNL...
   dspAddress: ""    # https://<connector>/api/v1/dsp
+  organization: ""  # Name, den Partner als Absender sehen
+
+# Freigaben an Partner
+sharing:
+  defaultLifetimeDays: 30
+  maxLifetimeDays: 90
+
+# Eingang: Abfrage der Partnerkataloge und Abruf in Abschnitten
+inbox:
+  pollInterval: "00:02:00"
+  segmentSizeBytes: 67108864
 
 edc:
   managementUrl: "" # clusterintern, z. B. http://alice-edc-controlplane:8081/management

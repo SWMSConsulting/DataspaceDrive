@@ -1,6 +1,15 @@
-<app-planned-feature
-  heading="Aktivität"
-  phase="Phase 2"
-  description="Nachvollziehbarkeit aller Freigaben und Abrufe (Audit, nur anfügend)."
-  [items]="items"
-/>
+<div class="page-header">
+  <h1 class="page-title">Aktivität</h1>
+  <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+</div>
+<p class="hint">Die letzten 1000 Einträge des Protokolls: Anmeldungen, Dateien, Freigaben, Abrufe durch Partner und der Eingang.</p>
+
+<dx-data-grid [dataSource]="entries()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" [height]="640" noDataText="Keine Einträge.">
+  <dxo-filter-row [visible]="true"></dxo-filter-row>
+  <dxo-paging [pageSize]="50"></dxo-paging>
+  <dxi-column dataField="occurredAt" caption="Zeit" dataType="datetime" sortOrder="desc" [width]="160"></dxi-column>
+  <dxi-column caption="Wer" [calculateCellValue]="formatActor" [width]="160"></dxi-column>
+  <dxi-column dataField="action" caption="Aktion" [width]="200"></dxi-column>
+  <dxi-column dataField="targetType" caption="Objekt" [width]="120"></dxi-column>
+  <dxi-column dataField="details" caption="Details"></dxi-column>
+</dx-data-grid>
