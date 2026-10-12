@@ -15,6 +15,7 @@
   <dxi-column dataField="did" caption="DID"></dxi-column>
   <dxi-column caption="Status" [calculateCellValue]="formatStatus" [width]="120"></dxi-column>
   <dxi-column caption="Austausch" [calculateCellValue]="formatFlags" [width]="140"></dxi-column>
+  <dxi-column caption="Automatisch annehmen" [calculateCellValue]="formatAutoAccept" [width]="180"></dxi-column>
   <dxi-column dataField="lastPolledAt" caption="Zuletzt abgefragt" dataType="datetime" [width]="150"></dxi-column>
   <dxi-column caption="Fehler" [calculateCellValue]="formatError"></dxi-column>
   <dxi-column caption="" [width]="260" cellTemplate="actions"></dxi-column>
@@ -51,5 +52,20 @@
       <dx-check-box text="Eingang von diesem Partner abfragen" [value]="draft().receivingEnabled" (onValueChanged)="update('receivingEnabled', $event.value)"></dx-check-box>
       <dx-check-box text="Gesperrt" [value]="draft().blocked" (onValueChanged)="update('blocked', $event.value)"></dx-check-box>
     </div>
+    <label class="field-label" for="partner-auto">Angebote automatisch annehmen</label>
+    <dx-select-box
+      id="partner-auto"
+      [items]="autoAcceptOptions"
+      valueExpr="value"
+      displayExpr="text"
+      [value]="draft().autoAccept"
+      (onValueChanged)="update('autoAccept', $event.value)"
+    ></dx-select-box>
+    @if (draft().autoAccept === 'All') {
+      <p class="hint-small">Zielordner (abgelegt wird in Ihrem Namen; Sie brauchen Schreibrecht): {{ draftFolderPath() ?? 'noch nicht gewählt' }}</p>
+      <app-folder-picker [height]="220" (selected)="onFolderSelected($event)" />
+    } @else if (draft().autoAccept === 'UpdatesOnly') {
+      <p class="hint-small">Neue Revisionen einer übernommenen Freigabe landen ohne Rückfrage am bisherigen Ort.</p>
+    }
   </div>
 </dx-popup>

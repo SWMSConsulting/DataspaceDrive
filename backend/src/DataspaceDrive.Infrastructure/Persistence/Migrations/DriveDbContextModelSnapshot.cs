@@ -515,6 +515,17 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AutoAccept")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("AutoAcceptFolderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AutoAcceptUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("Blocked")
                         .HasColumnType("boolean");
 

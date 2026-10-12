@@ -640,4 +640,74 @@ public sealed class SharingFlowTests : IAsyncLifetime
         Assert.Equal("Revoked", shares.Single(s => s.GetProperty("revision").GetInt32() == 1).GetProperty("deliveries")[0].GetProperty("state").GetString());
         Assert.Equal("Active", shares.Single(s => s.GetProperty("revision").GetInt32() == 2).GetProperty("deliveries")[0].GetProperty("state").GetString());
     }
+
+    private async Task<JsonElement> SetAutoAcceptAsync(HttpClient bobAdmin, string mode, Guid? folderId)
+    {
+        var partner = (await ReadAsync(await bobAdmin.GetAsync("/api/admin/partners"))).EnumerateArray().Single();
+        return await ReadAsync(await bobAdmin.PutAsJsonAsync($"/api/admin/partners/{partner.GetProperty("id").GetGuid()}", new
+        {
+            bpn = partner.GetProperty("bpn").GetString(), name = partner.GetProperty("name").GetString(),
+            dspAddress = partner.GetProperty("dspAddress").GetString(), sharingEnabled = true, receivingEnabled = true, blocked = false,
+            autoAccept = mode, autoAcceptFolderId = folderId,
+        }));
+    }
+
+    [Fact]
+    public async Task Auto_accept_all_stores_new_offers_in_the_configured_folder()
+    {
+        var bobAdmin = await _bob.ClientForAsync("admin", DrivePrincipal.RoleUser, DrivePrincipal.RoleAdmin);
+        var adminRoot = await RootFolderAsync(bobAdmin);
+        var inboxUser = await BobInboxAsync();
+        var partnerId = (await ReadAsync(await bobAdmin.GetAsync("/api/admin/partners"))).EnumerateArray().Single().GetProperty("id").GetGuid();
+        Assert.Equal(HttpStatusCode.BadRequest, (await bobAdmin.PutAsJsonAsync($"/api/admin/partners/{partnerId}", new
+        {
+            bpn = AliceBpn, name = "Alice AG", dspAddress = _aliceEdc.DspAddress, autoAccept = "All",
+        })).StatusCode);
+        // Fremder persönlicher Bereich: kein Schreibrecht, also nicht wählbar.
+        Assert.Equal(HttpStatusCode.NotFound, (await bobAdmin.PutAsJsonAsync($"/api/admin/partners/{partnerId}", new
+        {
+            bpn = AliceBpn, name = "Alice AG", dspAddress = _aliceEdc.DspAddress, autoAccept = "All", autoAcceptFolderId = await RootFolderAsync(inboxUser),
+        })).StatusCode);
+        var configured = await SetAutoAcceptAsync(bobAdmin, "All", adminRoot);
+        Assert.Equal(("All", "admin"), (configured.GetProperty("autoAccept").GetString(), configured.GetProperty("autoAcceptUserName").GetString()));
+
+        await ShareFileAsync("Automatisch.txt", 100);
+        await _bob.PollAsync();
+        Assert.Equal("Accepted", (await ReadAsync(await inboxUser.GetAsync("/api/inbox"))).EnumerateArray().Single().GetProperty("state").GetString());
+        await _bob.RunInboxAsync();
+
+        Assert.Equal("Completed", (await ReadAsync(await inboxUser.GetAsync("/api/inbox"))).EnumerateArray().Single().GetProperty("state").GetString());
+        Assert.Contains((await ReadAsync(await bobAdmin.GetAsync($"/api/folders/{adminRoot}/children"))).GetProperty("items").EnumerateArray(),
+            i => i.GetProperty("name").GetString() == "Automatisch.txt");
+    }
+
+    [Fact]
+    public async Task Auto_accept_updates_only_takes_new_revisions_to_the_previous_place()
+    {
+        var bobAdmin = await _bob.ClientForAsync("admin", DrivePrincipal.RoleUser, DrivePrincipal.RoleAdmin);
+        await SetAutoAcceptAsync(bobAdmin, "UpdatesOnly", null);
+        var alice = await AliceSharerAsync();
+        var aliceRoot = await RootFolderAsync(alice);
+        var file = await UploadAsync(alice, aliceRoot, "Wartung.pdf", "eins"u8.ToArray());
+        var partnerId = (await ReadAsync(await alice.GetAsync("/api/partners/targets"))).EnumerateArray().Single().GetProperty("id").GetGuid();
+        var share = await ReadAsync(await alice.PostAsJsonAsync("/api/shares", new { fileIds = new[] { file.GetProperty("id").GetGuid() }, partnerIds = new[] { partnerId } }));
+        await _alice.RunDeliveryWorkerAsync();
+        var bob = await BobInboxAsync();
+        await _bob.PollAsync();
+        Assert.Equal("New", (await ReadAsync(await bob.GetAsync("/api/inbox"))).EnumerateArray().Single().GetProperty("state").GetString());
+        var bobRoot = await RootFolderAsync(bob);
+        await AcceptOnlyNewOfferAsync(bob, bobRoot);
+
+        await UploadAsync(alice, aliceRoot, "Wartung.pdf", "zwei"u8.ToArray());
+        await ReadAsync(await alice.PostAsJsonAsync($"/api/shares/{share.GetProperty("id").GetGuid()}/update", new { }));
+        await _alice.RunDeliveryWorkerAsync();
+        await _bob.PollAsync();
+        var revision = (await ReadAsync(await bob.GetAsync("/api/inbox"))).EnumerateArray().Single(o => o.GetProperty("revision").GetInt32() == 2);
+        Assert.Equal("Accepted", revision.GetProperty("state").GetString());
+        await _bob.RunInboxAsync();
+
+        var copy = (await ReadAsync(await bob.GetAsync($"/api/folders/{bobRoot}/children"))).GetProperty("items").EnumerateArray()
+            .Single(i => i.GetProperty("name").GetString() == "Wartung.pdf");
+        Assert.Equal("zwei", await (await bob.GetAsync($"/api/files/{copy.GetProperty("id").GetGuid()}/content")).Content.ReadAsStringAsync());
+    }
 }

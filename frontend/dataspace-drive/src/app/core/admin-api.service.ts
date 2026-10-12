@@ -38,7 +38,13 @@ export interface PartnerInfo {
   blocked: boolean;
   lastPolledAt: string | null;
   lastPollError: string | null;
+  autoAccept: AutoAcceptMode;
+  autoAcceptFolderId: string | null;
+  autoAcceptFolderPath: string | null;
+  autoAcceptUserName: string | null;
 }
+
+export type AutoAcceptMode = 'Off' | 'UpdatesOnly' | 'All';
 
 export interface PartnerRequest {
   bpn: string;
@@ -47,6 +53,8 @@ export interface PartnerRequest {
   sharingEnabled: boolean;
   receivingEnabled: boolean;
   blocked: boolean;
+  autoAccept: AutoAcceptMode;
+  autoAcceptFolderId: string | null;
 }
 
 export interface EdcFinding {

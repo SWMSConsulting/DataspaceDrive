@@ -3,6 +3,8 @@ using DataspaceDrive.Core;
 using DataspaceDrive.Core.Access;
 using DataspaceDrive.Core.Audit;
 using DataspaceDrive.Core.Partners;
+using DataspaceDrive.Core.Files;
+using DataspaceDrive.Infrastructure.Files;
 using DataspaceDrive.Infrastructure.Persistence;
 using DataspaceDrive.Infrastructure.Sharing;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +16,7 @@ namespace DataspaceDrive.Infrastructure.Partners;
 
 public sealed partial class PartnerService(
     DriveDbContext db,
+    AccessResolver access,
     IServiceProvider services,
     IOptions<ParticipantOptions> participant,
     TimeProvider clock) : IPartnerService
@@ -23,7 +26,7 @@ public sealed partial class PartnerService(
     public async Task<IReadOnlyList<PartnerInfo>> ListAsync(DrivePrincipal admin, CancellationToken ct)
     {
         RequireAdmin(admin);
-        return (await db.Partners.OrderBy(p => p.Name).ToListAsync(ct)).Select(ToInfo).ToList();
+        return await InfosAsync(await db.Partners.OrderBy(p => p.Name).ToListAsync(ct), ct);
     }
 
     public async Task<PartnerInfo> CreateAsync(DrivePrincipal admin, PartnerRequest request, CancellationToken ct)
@@ -37,11 +40,12 @@ public sealed partial class PartnerService(
             Id = Guid.NewGuid(), Bpn = bpn, Name = name, DspAddress = address, SharingEnabled = request.SharingEnabled,
             ReceivingEnabled = request.ReceivingEnabled, Blocked = request.Blocked, CreatedAt = Now,
         };
+        await ApplyAutoAcceptAsync(admin, partner, request, ct);
         await ResolveIntoAsync(partner, ct);
         db.Partners.Add(partner);
-        Audit(admin, "partner.created", partner, $"{bpn} {name} {address}");
+        Audit(admin, "partner.created", partner, $"{bpn} {name} {address}, automatisch annehmen: {partner.AutoAccept}");
         await db.SaveChangesAsync(ct);
-        return ToInfo(partner);
+        return (await InfosAsync([partner], ct))[0];
     }
 
     public async Task<PartnerInfo> UpdateAsync(DrivePrincipal admin, Guid partnerId, PartnerRequest request, CancellationToken ct)
@@ -57,12 +61,13 @@ public sealed partial class PartnerService(
         partner.SharingEnabled = request.SharingEnabled;
         partner.ReceivingEnabled = request.ReceivingEnabled;
         partner.Blocked = request.Blocked;
+        await ApplyAutoAcceptAsync(admin, partner, request, ct);
         if (readdress || !partner.IsResolved)
             await ResolveIntoAsync(partner, ct);
         Audit(admin, "partner.updated", partner,
-            $"{name} {address} teilen={request.SharingEnabled} empfangen={request.ReceivingEnabled} gesperrt={request.Blocked}");
+            $"{name} {address} teilen={request.SharingEnabled} empfangen={request.ReceivingEnabled} gesperrt={request.Blocked} automatisch={partner.AutoAccept}");
         await db.SaveChangesAsync(ct);
-        return ToInfo(partner);
+        return (await InfosAsync([partner], ct))[0];
     }
 
     public async Task DeleteAsync(DrivePrincipal admin, Guid partnerId, CancellationToken ct)
@@ -82,7 +87,7 @@ public sealed partial class PartnerService(
         var partner = await FindAsync(partnerId, ct);
         await ResolveIntoAsync(partner, ct);
         await db.SaveChangesAsync(ct);
-        return ToInfo(partner);
+        return (await InfosAsync([partner], ct))[0];
     }
 
     public async Task<IReadOnlyList<ShareTarget>> ShareTargetsAsync(DrivePrincipal principal, CancellationToken ct)
@@ -152,8 +157,44 @@ public sealed partial class PartnerService(
             Details = details,
         });
 
-    internal static PartnerInfo ToInfo(Partner p) => new(p.Id, p.Bpn, p.Name, p.DspAddress, p.Did, p.Protocol, p.ResolvedAt, p.ResolveError,
-        p.SharingEnabled, p.ReceivingEnabled, p.Blocked, p.LastPolledAt, p.LastPollError);
+    /// <summary>
+    /// Automatische Annahme: „Alle“ braucht einen Zielordner, auf den die Person Schreibrecht hat; abgelegt wird in ihrem Namen.
+    /// </summary>
+    private async Task ApplyAutoAcceptAsync(DrivePrincipal admin, Partner partner, PartnerRequest request, CancellationToken ct)
+    {
+        if (!Enum.IsDefined(request.AutoAccept))
+            throw new InvalidInputException("Unbekannte Einstellung für die automatische Annahme.");
+        partner.AutoAccept = request.AutoAccept;
+        if (request.AutoAccept != AutoAcceptMode.All)
+        {
+            partner.AutoAcceptFolderId = null;
+            partner.AutoAcceptUserId = null;
+            return;
+        }
+        if (request.AutoAcceptFolderId is not { } folderId)
+            throw new InvalidInputException("Für „Alle automatisch annehmen“ bitte einen Zielordner wählen.");
+        var folder = await db.Folders.FirstOrDefaultAsync(f => f.Id == folderId && f.DeletedAt == null, ct)
+            ?? throw new NotFoundException("Der Zielordner wurde nicht gefunden.");
+        await access.RequireAsync(admin, folder.SpaceId, Permission.Write, ct);
+        partner.AutoAcceptFolderId = folder.Id;
+        partner.AutoAcceptUserId = admin.UserId;
+    }
+
+    private async Task<IReadOnlyList<PartnerInfo>> InfosAsync(IReadOnlyList<Partner> partners, CancellationToken ct)
+    {
+        var folderIds = partners.Where(p => p.AutoAcceptFolderId != null).Select(p => p.AutoAcceptFolderId!.Value).Distinct().ToList();
+        var folders = await (from f in db.Folders
+                             join sp in db.Spaces on f.SpaceId equals sp.Id
+                             where folderIds.Contains(f.Id)
+                             select new { f.Id, f.Name, f.ParentId, Space = sp.Name }).ToListAsync(ct);
+        var userIds = partners.Where(p => p.AutoAcceptUserId != null).Select(p => p.AutoAcceptUserId!.Value).Distinct().ToList();
+        var users = await db.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+        string? FolderPath(Guid? id) => folders.FirstOrDefault(f => f.Id == id) is { } f ? (f.ParentId is null ? f.Space : $"{f.Space} / … / {f.Name}") : null;
+        return partners.Select(p => new PartnerInfo(p.Id, p.Bpn, p.Name, p.DspAddress, p.Did, p.Protocol, p.ResolvedAt, p.ResolveError,
+                p.SharingEnabled, p.ReceivingEnabled, p.Blocked, p.LastPolledAt, p.LastPollError, p.AutoAccept, p.AutoAcceptFolderId,
+                FolderPath(p.AutoAcceptFolderId), p.AutoAcceptUserId is { } u ? users.GetValueOrDefault(u) : null))
+            .ToList();
+    }
 
     [GeneratedRegex("^BPNL[0-9A-Z]{12}$")]
     private static partial Regex BpnPattern();

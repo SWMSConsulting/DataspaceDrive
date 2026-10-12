@@ -170,12 +170,47 @@ public sealed class InboxPoller(
                 OccurredAt = now, Action = "inbox.offer-found", TargetType = "incomingOffer", TargetId = incoming.Id.ToString(),
                 Details = $"{partner.Bpn}: {incoming.Title}, {offer.Items.Count} Datei(en), {offer.TotalSize} Bytes",
             });
+            await AutoAcceptAsync(db, partner, incoming, now, ct);
             created++;
         }
         // Nicht mehr im Katalog: zurückgezogen (Widerruf oder Ablauf beim Absender).
         foreach (var offer in existing.Where(e => e.State == IncomingOfferState.New && !offers.ContainsKey(e.AssetId)))
             IncomingTransferWorker.MoveTo(offer, IncomingOfferState.Withdrawn, now);
         return created;
+    }
+
+    /// <summary>
+    /// Automatische Annahme nach der Einstellung des Partners: Revisionen einer übernommenen Freigabe an den bisherigen Ort
+    /// (im Namen derselben Person), bei „Alle“ neue Angebote in den festen Zielordner.
+    /// </summary>
+    private async Task AutoAcceptAsync(DriveDbContext db, Partner partner, IncomingOffer offer, DateTime now, CancellationToken ct)
+    {
+        if (partner.AutoAccept == AutoAcceptMode.Off || offer.ExpiresAt is { } expires && expires <= now)
+            return;
+        Guid? folderId = null;
+        Guid? userId = null;
+        if (offer.Revision > 1 && offer.LineageId is not null)
+        {
+            var previous = await db.IncomingOffers
+                .Where(o => o.PartnerId == partner.Id && o.LineageId == offer.LineageId && o.Revision < offer.Revision
+                            && o.State == IncomingOfferState.Completed && o.TargetFolderId != null && o.DecidedBy != null)
+                .OrderByDescending(o => o.Revision).FirstOrDefaultAsync(ct);
+            if (previous is not null)
+                (folderId, userId) = (previous.TargetFolderId, previous.DecidedBy);
+        }
+        if (folderId is null && partner.AutoAccept == AutoAcceptMode.All)
+            (folderId, userId) = (partner.AutoAcceptFolderId, partner.AutoAcceptUserId);
+        if (folderId is null || userId is null || !await db.Folders.AnyAsync(f => f.Id == folderId && f.DeletedAt == null, ct))
+            return;
+        IncomingTransferWorker.MoveTo(offer, IncomingOfferState.Accepted, now);
+        offer.TargetFolderId = folderId;
+        offer.DecidedBy = userId;
+        offer.DecidedAt = now;
+        db.AuditEvents.Add(new AuditEvent
+        {
+            OccurredAt = now, ActorUserId = userId, Action = "inbox.auto-accepted", TargetType = "incomingOffer", TargetId = offer.Id.ToString(),
+            Details = $"{partner.Bpn}: {offer.Title} (Revision {offer.Revision}), Einstellung {partner.AutoAccept}",
+        });
     }
 
     /// <summary>Dateinamen kommen vom Partner: unzulässige Zeichen ersetzen, Länge begrenzen.</summary>

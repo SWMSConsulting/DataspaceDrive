@@ -3,33 +3,23 @@ import { DxButtonModule } from 'devextreme-angular/ui/button';
 import { DxCheckBoxModule } from 'devextreme-angular/ui/check-box';
 import { DxDataGridModule } from 'devextreme-angular/ui/data-grid';
 import { DxPopupModule } from 'devextreme-angular/ui/popup';
-import { DxTreeViewModule } from 'devextreme-angular/ui/tree-view';
 import { confirm } from 'devextreme/ui/dialog';
 import notify from 'devextreme/ui/notify';
-import { ItemSelectionChangedEvent, Node } from 'devextreme/ui/tree_view';
 
 import { AuthService } from '../../core/auth.service';
-import { DriveApiService, errorText } from '../../core/drive-api.service';
+import { errorText } from '../../core/drive-api.service';
 import { IncomingItemInfo, IncomingOfferInfo, SharingApiService, offerInProgress, offerLabel } from '../../core/sharing-api.service';
+import { FolderNode, FolderPicker } from '../../shared/folder-picker/folder-picker';
 import { formatBytes, scanLabel } from '../../shared/format';
-
-interface FolderNode {
-  id: string;
-  text: string;
-  parentId: string | null;
-  hasItems: boolean;
-  path: string;
-}
 
 @Component({
   selector: 'app-inbox',
-  imports: [DxDataGridModule, DxButtonModule, DxCheckBoxModule, DxPopupModule, DxTreeViewModule],
+  imports: [DxDataGridModule, DxButtonModule, DxCheckBoxModule, DxPopupModule, FolderPicker],
   templateUrl: './inbox.html',
   styleUrl: './inbox.scss',
 })
 export class Inbox {
   private readonly api = inject(SharingApiService);
-  private readonly drive = inject(DriveApiService);
   readonly auth = inject(AuthService);
 
   readonly offers = signal<IncomingOfferInfo[]>([]);
@@ -101,23 +91,8 @@ export class Inbox {
     await this.run(() => this.api.retryOffer(offer.id), 'Die Übernahme wird erneut versucht.');
   }
 
-  /** Ordnerbaum lädt nach: zuerst die beschreibbaren Bereiche, dann deren Unterordner. */
-  createChildren = async (parent: Node<FolderNode> | null): Promise<FolderNode[]> => {
-    if (!parent) {
-      const spaces = await this.drive.spaces();
-      return spaces
-        .filter((s) => s.permission === 'Write' || s.permission === 'Manage')
-        .map((s) => ({ id: s.rootFolderId, text: s.name, parentId: null, hasItems: true, path: s.name }));
-    }
-    const node = parent.itemData as FolderNode;
-    const listing = await this.drive.children(node.id);
-    return listing.items
-      .filter((i) => i.isDirectory)
-      .map((i) => ({ id: i.id, text: i.name, parentId: node.id, hasItems: true, path: `${node.path} / ${i.name}` }));
-  };
-
-  onFolderSelected(e: ItemSelectionChangedEvent<FolderNode>): void {
-    this.target.set(e.node?.selected ? (e.itemData ?? null) : null);
+  onFolderSelected(folder: FolderNode | null): void {
+    this.target.set(folder);
   }
 
   formatTitle = (row: IncomingOfferInfo): string => (row.revision > 1 ? `${row.title} (Aktualisierung, Revision ${row.revision})` : row.title);

@@ -33,9 +33,29 @@ public sealed class Partner
     /// <summary>Gesperrt: keine neuen Freigaben, keine Auslieferung, kein Empfang.</summary>
     public bool Blocked { get; set; }
 
+    /// <summary>Angebote dieses Partners ohne Rückfrage übernehmen (Standard: aus).</summary>
+    public AutoAcceptMode AutoAccept { get; set; } = AutoAcceptMode.Off;
+
+    /// <summary>Zielordner bei <see cref="AutoAcceptMode.All"/>.</summary>
+    public Guid? AutoAcceptFolderId { get; set; }
+
+    /// <summary>In dessen Namen automatisch übernommene Dateien abgelegt werden (wer die Einstellung vorgenommen hat).</summary>
+    public Guid? AutoAcceptUserId { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? LastPolledAt { get; set; }
     public string? LastPollError { get; set; }
 
     public bool IsResolved => Did is not null && Protocol is not null && ProtocolAddress is not null;
+}
+
+public enum AutoAcceptMode
+{
+    Off,
+
+    /// <summary>Neue Revisionen bereits übernommener Freigaben an den bisherigen Ort.</summary>
+    UpdatesOnly,
+
+    /// <summary>Jedes Angebot; neue in den festen Zielordner, Revisionen an den bisherigen Ort.</summary>
+    All,
 }

@@ -3,18 +3,35 @@ import { DxButtonModule } from 'devextreme-angular/ui/button';
 import { DxCheckBoxModule } from 'devextreme-angular/ui/check-box';
 import { DxDataGridModule } from 'devextreme-angular/ui/data-grid';
 import { DxPopupModule } from 'devextreme-angular/ui/popup';
+import { DxSelectBoxModule } from 'devextreme-angular/ui/select-box';
 import { DxTextBoxModule } from 'devextreme-angular/ui/text-box';
 import { confirm } from 'devextreme/ui/dialog';
 import notify from 'devextreme/ui/notify';
 
-import { AdminApiService, PartnerInfo, PartnerRequest } from '../../core/admin-api.service';
+import { AdminApiService, AutoAcceptMode, PartnerInfo, PartnerRequest } from '../../core/admin-api.service';
 import { errorText } from '../../core/drive-api.service';
+import { FolderNode, FolderPicker } from '../../shared/folder-picker/folder-picker';
 
-const emptyDraft: PartnerRequest = { bpn: '', name: '', dspAddress: '', sharingEnabled: true, receivingEnabled: true, blocked: false };
+const emptyDraft: PartnerRequest = {
+  bpn: '',
+  name: '',
+  dspAddress: '',
+  sharingEnabled: true,
+  receivingEnabled: true,
+  blocked: false,
+  autoAccept: 'Off',
+  autoAcceptFolderId: null,
+};
+
+const autoAcceptLabels: Record<AutoAcceptMode, string> = {
+  Off: 'aus (jedes Angebot manuell annehmen)',
+  UpdatesOnly: 'nur Aktualisierungen bereits übernommener Freigaben',
+  All: 'alle Angebote in einen festen Ordner',
+};
 
 @Component({
   selector: 'app-partners',
-  imports: [DxDataGridModule, DxButtonModule, DxCheckBoxModule, DxPopupModule, DxTextBoxModule],
+  imports: [DxDataGridModule, DxButtonModule, DxCheckBoxModule, DxPopupModule, DxSelectBoxModule, DxTextBoxModule, FolderPicker],
   templateUrl: './partners.html',
   styleUrl: './partners.scss',
 })
@@ -26,6 +43,8 @@ export class Partners {
   readonly editingId = signal<string | null>(null);
   readonly draft = signal<PartnerRequest>({ ...emptyDraft });
   readonly editorTitle = computed(() => (this.editingId() ? 'Partner bearbeiten' : 'Partner anlegen'));
+  readonly draftFolderPath = signal<string | null>(null);
+  readonly autoAcceptOptions = (Object.keys(autoAcceptLabels) as AutoAcceptMode[]).map((value) => ({ value, text: autoAcceptLabels[value] }));
 
   readonly saveButtonOptions = {
     text: 'Speichern',
@@ -55,6 +74,7 @@ export class Partners {
   openCreate(): void {
     this.editingId.set(null);
     this.draft.set({ ...emptyDraft });
+    this.draftFolderPath.set(null);
     this.editorVisible.set(true);
   }
 
@@ -67,7 +87,10 @@ export class Partners {
       sharingEnabled: partner.sharingEnabled,
       receivingEnabled: partner.receivingEnabled,
       blocked: partner.blocked,
+      autoAccept: partner.autoAccept,
+      autoAcceptFolderId: partner.autoAcceptFolderId,
     });
+    this.draftFolderPath.set(partner.autoAcceptFolderPath);
     this.editorVisible.set(true);
   }
 
@@ -114,6 +137,17 @@ export class Partners {
   formatFlags = (row: PartnerInfo): string =>
     [row.sharingEnabled ? 'teilen' : null, row.receivingEnabled ? 'empfangen' : null].filter(Boolean).join(', ') || '–';
   formatError = (row: PartnerInfo): string => row.resolveError ?? row.lastPollError ?? '';
+  formatAutoAccept = (row: PartnerInfo): string =>
+    row.autoAccept === 'All'
+      ? `alle → ${row.autoAcceptFolderPath ?? '?'}${row.autoAcceptUserName ? ' (als ' + row.autoAcceptUserName + ')' : ''}`
+      : row.autoAccept === 'UpdatesOnly'
+        ? 'Aktualisierungen'
+        : 'aus';
+
+  onFolderSelected(folder: FolderNode | null): void {
+    this.update('autoAcceptFolderId', folder?.id ?? null);
+    this.draftFolderPath.set(folder?.path ?? null);
+  }
 
   private async save(): Promise<void> {
     const draft = this.draft();

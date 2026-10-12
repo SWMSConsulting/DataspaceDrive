@@ -15,10 +15,14 @@ public sealed record PartnerInfo(
     bool ReceivingEnabled,
     bool Blocked,
     DateTime? LastPolledAt,
-    string? LastPollError);
+    string? LastPollError,
+    AutoAcceptMode AutoAccept,
+    Guid? AutoAcceptFolderId,
+    string? AutoAcceptFolderPath,
+    string? AutoAcceptUserName);
 
 public sealed record PartnerRequest(string Bpn, string Name, string DspAddress, bool SharingEnabled = true, bool ReceivingEnabled = true,
-    bool Blocked = false);
+    bool Blocked = false, AutoAcceptMode AutoAccept = AutoAcceptMode.Off, Guid? AutoAcceptFolderId = null);
 
 /// <summary>Partner, an den ein Nutzer freigeben kann (für den Teilen-Dialog).</summary>
 public sealed record ShareTarget(Guid Id, string Bpn, string Name);

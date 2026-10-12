@@ -81,18 +81,7 @@
       </div>
     }
     @if (acceptOffer()) {
-      <dx-tree-view
-        dataStructure="plain"
-        keyExpr="id"
-        displayExpr="text"
-        parentIdExpr="parentId"
-        hasItemsExpr="hasItems"
-        selectionMode="single"
-        [selectByClick]="true"
-        [createChildren]="createChildren"
-        [height]="340"
-        (onItemSelectionChanged)="onFolderSelected($event)"
-      ></dx-tree-view>
+      <app-folder-picker [height]="300" (selected)="onFolderSelected($event)" />
     }
     <p class="meta">Ziel: {{ target()?.path ?? 'noch nicht gewählt' }}</p>
   </div>
