@@ -42,6 +42,9 @@ public sealed class FakeDataspace
         public HashSet<string> Retired { get; } = [];
         public Dictionary<string, Negotiation> Negotiations { get; } = [];
         public List<string> TerminatedTransfers { get; } = [];
+
+        /// <summary>Policies, die dieser Teilnehmer als Konsument verhandelt hat (für Profil-Tests).</summary>
+        public List<JsonObject> ContractRequests { get; } = [];
     }
 
     public sealed record Negotiation(string Id, string State, string? AgreementId, string? TransferProcessId, string? ErrorDetail);
@@ -220,6 +223,7 @@ public sealed class FakeDataspace
 
     private HttpResponseMessage StartNegotiation(Participant consumer, JsonObject request)
     {
+        consumer.ContractRequests.Add(request["policy"]!.AsObject().DeepClone().AsObject());
         var offerId = request["policy"]!["@id"]!.GetValue<string>();
         var assigner = request["policy"]!["odrl:assigner"]!["@id"]!.GetValue<string>();
         var (cdId, assetId) = ParseOffer(offerId);

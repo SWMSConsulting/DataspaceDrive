@@ -26,7 +26,8 @@ public sealed record DeliveryAssetSpec(
     string ContentBaseUrl,
     string AuthCode,
     string? LineageId = null,
-    int Revision = 1);
+    int Revision = 1,
+    string ContractProfile = DriveExchange.MembershipProfile);
 
 /// <summary>Zustellung aus dem Katalog eines Partners, wie sie der Empfänger liest.</summary>
 public sealed record DeliveryOffer(
@@ -40,7 +41,8 @@ public sealed record DeliveryOffer(
     DateTimeOffset? ExpiresAt,
     IReadOnlyList<ManifestItem> Items,
     string? LineageId = null,
-    int Revision = 1)
+    int Revision = 1,
+    string ContractProfile = DriveExchange.MembershipProfile)
 {
     public long TotalSize => Items.Sum(i => i.Size);
 }
@@ -56,6 +58,20 @@ public static class DriveExchange
     public const string SchemaVersion = "1";
     public const string AuthHeader = "X-Drive-Delivery-Token";
     public const string MembershipContractPolicyId = "drive-cp-membership-v1";
+
+    /// <summary>Vertragsprofile: „membership“ (Mitglied im Dataspace) oder „cx“ (FrameworkAgreement + UsagePurpose).</summary>
+    public const string MembershipProfile = "membership";
+    public const string CxProfile = "cx";
+    public const string CxContractPolicyId = "drive-cp-cx-v1";
+    public const string CxUsagePurpose = "windx.drive.fileExchange:1";
+
+    public static bool IsKnownProfile(string? profile) => profile is MembershipProfile or CxProfile;
+
+    public static string ContractPolicyId(string profile) => profile == CxProfile ? CxContractPolicyId : MembershipContractPolicyId;
+
+    /// <summary>Berechtigungen der Contract-Policy des Profils; der Empfänger schickt sie beim Verhandeln genau so zurück.</summary>
+    public static JsonArray PermissionsFor(string profile) =>
+        profile == CxProfile ? ExchangeProfile.CxUsagePermissions(CxUsagePurpose) : ExchangeProfile.MembershipContractPermissions();
 
     private static readonly JsonSerializerOptions ManifestJson = new(JsonSerializerDefaults.Web)
     {
@@ -142,6 +158,7 @@ public static class DriveExchange
         if (!string.IsNullOrWhiteSpace(spec.SenderOrganization))
             properties["drive:senderOrganization"] = spec.SenderOrganization;
         // Folgefreigaben derselben Auswahl teilen die Linie; die Revision zählt hoch.
+        properties["drive:contractProfile"] = spec.ContractProfile;
         if (!string.IsNullOrWhiteSpace(spec.LineageId))
         {
             properties["drive:lineageId"] = spec.LineageId;
@@ -170,15 +187,15 @@ public static class DriveExchange
         };
     }
 
-    /// <summary>Contract Definition genau dieser Zustellung: Access-Policy des Empfängers, Profil-Contract-Policy.</summary>
-    public static JsonObject DeliveryContractDefinition(string deliveryId, string recipientBpn) =>
-        EdcRequests.ContractDefinition(ContractDefinitionId(deliveryId), AccessPolicyId(recipientBpn), MembershipContractPolicyId,
+    /// <summary>Contract Definition genau dieser Zustellung: Access-Policy des Empfängers, Contract-Policy des Profils.</summary>
+    public static JsonObject DeliveryContractDefinition(string deliveryId, string recipientBpn, string profile = MembershipProfile) =>
+        EdcRequests.ContractDefinition(ContractDefinitionId(deliveryId), AccessPolicyId(recipientBpn), ContractPolicyId(profile),
             AssetId(deliveryId));
 
     public static JsonObject AccessPolicy(string recipientBpn) => ExchangeProfile.AccessPolicy(AccessPolicyId(recipientBpn), [recipientBpn]);
 
-    public static JsonObject ContractPolicy() =>
-        ExchangeProfile.PolicyDefinition(MembershipContractPolicyId, ExchangeProfile.MembershipContractPermissions());
+    public static JsonObject ContractPolicy(string profile = MembershipProfile) =>
+        ExchangeProfile.PolicyDefinition(ContractPolicyId(profile), PermissionsFor(profile));
 
     /// <summary>Katalogfilter des Empfängers: nur Zustellungen, nur an die eigene BPN.</summary>
     public static IReadOnlyList<Criterion> InboxFilters(string ownBpn) =>
@@ -211,8 +228,12 @@ public static class DriveExchange
             DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : null;
         var title = JsonLd.GetString(dataset, "title") ?? JsonLd.GetString(dataset, "name") ?? assetId;
         var revision = int.TryParse(Drive(dataset, "revision"), NumberStyles.None, CultureInfo.InvariantCulture, out var r) && r > 0 ? r : 1;
+        // Ohne Angabe: Profil „membership“ (frühe Zustellungen); unbekannte Profile kann dieser Empfänger nicht verhandeln.
+        var profile = Drive(dataset, "contractProfile") is { Length: > 0 } stated ? stated : MembershipProfile;
+        if (!IsKnownProfile(profile))
+            return null;
         return new DeliveryOffer(assetId, offerId, title, Drive(dataset, "message"), recipient, sender, Drive(dataset, "senderOrganization"),
-            expiresAt, items, Drive(dataset, "lineageId"), revision);
+            expiresAt, items, Drive(dataset, "lineageId"), revision, profile);
     }
 
     /// <summary>

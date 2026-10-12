@@ -11,7 +11,8 @@ public sealed class InstanceSetting
     public Guid? ChangedBy { get; set; }
 }
 
-public sealed record SharingSettings(bool RequireApproval);
+/// <param name="ContractProfile">Vertragsprofil aus der Konfiguration (nur zur Anzeige).</param>
+public sealed record SharingSettings(bool RequireApproval, string? ContractProfile = null);
 
 public interface IInstanceSettings
 {

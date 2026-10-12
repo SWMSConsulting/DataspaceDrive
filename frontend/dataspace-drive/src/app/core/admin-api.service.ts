@@ -138,8 +138,8 @@ export class AdminApiService {
     return firstValueFrom(this.http.post<PartnerInfo>(`/api/admin/partners/${id}/resolve`, {}));
   }
 
-  sharingSettings(): Promise<{ requireApproval: boolean }> {
-    return firstValueFrom(this.http.get<{ requireApproval: boolean }>('/api/admin/settings/sharing'));
+  sharingSettings(): Promise<{ requireApproval: boolean; contractProfile: string | null }> {
+    return firstValueFrom(this.http.get<{ requireApproval: boolean; contractProfile: string | null }>('/api/admin/settings/sharing'));
   }
 
   updateSharingSettings(requireApproval: boolean): Promise<{ requireApproval: boolean }> {

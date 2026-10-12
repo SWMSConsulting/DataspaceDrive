@@ -420,6 +420,11 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ContractProfile")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<DateTime?>("DecidedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -834,6 +839,11 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Approval")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("ContractProfile")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");

@@ -28,7 +28,8 @@ public sealed class ManualTimeProvider : TimeProvider
 }
 
 /// <summary>Drive eines Teilnehmers im <see cref="FakeDataspace"/>; Hintergrunddienste ruft der Test selbst auf.</summary>
-public sealed class SharingApiFactory(FakeDataspace dataspace, FakeDataspace.Participant participant) : DriveApiFactory
+public sealed class SharingApiFactory(FakeDataspace dataspace, FakeDataspace.Participant participant,
+    IReadOnlyDictionary<string, string?>? extraConfig = null) : DriveApiFactory
 {
     public ManualTimeProvider Clock { get; } = new();
 
@@ -51,6 +52,8 @@ public sealed class SharingApiFactory(FakeDataspace dataspace, FakeDataspace.Par
             ["Drive:Mail:SmtpHost"] = "smtp.invalid",
             ["Drive:Mail:PublicUrl"] = $"https://drive-{participant.Name}.example",
         }));
+        if (extraConfig is not null)
+            builder.ConfigureAppConfiguration(config => config.AddInMemoryCollection(extraConfig));
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<TimeProvider>(Clock);

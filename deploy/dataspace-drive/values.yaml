@@ -19,6 +19,10 @@ participant:
 sharing:
   defaultLifetimeDays: 30
   maxLifetimeDays: 90
+  # membership (Standard) oder cx (FrameworkAgreement + UsagePurpose; braucht passende DEG-Credentials bei allen Partnern)
+  contractProfile: membership
+  # Vorgabe für das Vier-Augen-Prinzip; die Verwaltung kann es in der Oberfläche umschalten.
+  requireApproval: false
 
 # E-Mail-Benachrichtigungen über SMTP; ohne Host verschickt die Drive keine E-Mails.
 # Ein Passwort steht im Secret unter smtp-password (optional).

@@ -202,15 +202,16 @@ public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clo
         var sharing = services.GetRequiredService<IOptions<SharingOptions>>().Value;
 
         await edc.CreatePolicyAsync(DriveExchange.AccessPolicy(delivery.RecipientBpn), ct);
-        await edc.CreatePolicyAsync(DriveExchange.ContractPolicy(), ct);
+        await edc.CreatePolicyAsync(DriveExchange.ContractPolicy(share.ContractProfile), ct);
         await edc.CreateAssetAsync(DriveExchange.DeliveryAsset(new DeliveryAssetSpec(
             delivery.ExternalId, sharing.InstanceId, share.Title, share.Message, delivery.RecipientBpn, participant.Bpn, participant.Organization,
             new DateTimeOffset(DateTime.SpecifyKind(delivery.ExpiresAt, DateTimeKind.Utc)),
             items.OrderBy(i => i.ItemKey.Length).ThenBy(i => i.ItemKey)
                 .Select(i => new ManifestItem(i.ItemKey, i.Name, i.SizeBytes, i.Sha256, i.ContentType, i.RelativePath, i.FileEntryId.ToString("N")))
                 .ToList(),
-            sharing.ContentBaseUrl, tokens.Create(delivery.ExternalId), share.LineageId.ToString("N"), share.Revision)), ct);
-        await edc.CreateContractDefinitionAsync(DriveExchange.DeliveryContractDefinition(delivery.ExternalId, delivery.RecipientBpn), ct);
+            sharing.ContentBaseUrl, tokens.Create(delivery.ExternalId), share.LineageId.ToString("N"), share.Revision, share.ContractProfile)), ct);
+        await edc.CreateContractDefinitionAsync(
+            DriveExchange.DeliveryContractDefinition(delivery.ExternalId, delivery.RecipientBpn, share.ContractProfile), ct);
 
         delivery.TokenVersion = tokens.CurrentVersion;
         delivery.State = DeliveryLifecycle.Transitions.Move(delivery.State, DeliveryState.Active);

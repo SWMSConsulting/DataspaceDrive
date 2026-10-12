@@ -19,6 +19,9 @@ public sealed class IncomingOffer
 
     public int Revision { get; set; } = 1;
 
+    /// <summary>Vertragsprofil des Absenders; bestimmt die Berechtigungen beim Verhandeln.</summary>
+    public string ContractProfile { get; set; } = "membership";
+
     public IncomingOfferState State { get; set; }
 
     /// <summary>Beginn des aktuellen Zustands; Wartezeiten der Übernahme zählen ab hier.</summary>

@@ -157,6 +157,7 @@ public sealed class InboxPoller(
                 SenderOrganization = offer.SenderOrganization is null ? null : Limit(offer.SenderOrganization, 200),
                 ExpiresAt = offer.ExpiresAt?.UtcDateTime, TotalSize = offer.TotalSize, State = IncomingOfferState.New, StateChangedAt = now, FirstSeenAt = now,
                 LastSeenAt = now, LineageId = offer.LineageId is null ? null : Limit(offer.LineageId, 100), Revision = offer.Revision,
+                ContractProfile = offer.ContractProfile,
             };
             db.IncomingOffers.Add(incoming);
             foreach (var item in offer.Items)

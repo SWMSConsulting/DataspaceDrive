@@ -169,6 +169,7 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
             e.Property(x => x.SourceFileIds).HasMaxLength(20000);
             e.Property(x => x.SourceFolderIds).HasMaxLength(4000);
             e.Property(x => x.Approval).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.ContractProfile).HasMaxLength(20);
             e.Property(x => x.DecisionNote).HasMaxLength(1000);
             e.HasIndex(x => x.Approval);
             e.HasIndex(x => x.CreatedBy);
@@ -239,6 +240,7 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
             e.Property(o => o.AgreementId).HasMaxLength(200);
             e.Property(o => o.TransferProcessId).HasMaxLength(200);
             e.Property(o => o.LineageId).HasMaxLength(100);
+            e.Property(o => o.ContractProfile).HasMaxLength(20);
             e.HasIndex(o => new { o.PartnerId, o.LineageId });
             e.Property(o => o.Error).HasMaxLength(1000);
             e.Property(o => o.ConcurrencyStamp).IsConcurrencyToken();

@@ -38,6 +38,7 @@ export class Admin {
   readonly spaces = signal<TeamSpace[]>([]);
   readonly edc = signal<EdcStatus | null>(null);
   readonly requireApproval = signal(false);
+  readonly contractProfile = signal<string | null>(null);
   readonly checking = signal(false);
   readonly users = signal<KnownUser[]>([]);
 
@@ -93,6 +94,7 @@ export class Admin {
       this.users.set(users);
       this.edc.set(edc);
       this.requireApproval.set(sharing.requireApproval);
+      this.contractProfile.set(sharing.contractProfile);
     } catch (error) {
       notify(errorText(error), 'error', 4000);
     }

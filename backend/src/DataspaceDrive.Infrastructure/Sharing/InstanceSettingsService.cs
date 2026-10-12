@@ -16,7 +16,7 @@ public sealed class InstanceSettingsService(DriveDbContext db, IOptions<SharingO
     public async Task<SharingSettings> SharingAsync(CancellationToken ct)
     {
         var stored = await db.Settings.Where(s => s.Key == RequireApprovalKey).Select(s => s.Value).FirstOrDefaultAsync(ct);
-        return new SharingSettings(stored is null ? options.Value.RequireApproval : stored == "true");
+        return new SharingSettings(stored is null ? options.Value.RequireApproval : stored == "true", options.Value.ContractProfile);
     }
 
     public async Task<SharingSettings> UpdateSharingAsync(DrivePrincipal admin, SharingSettings settings, CancellationToken ct)
@@ -40,6 +40,6 @@ public sealed class InstanceSettingsService(DriveDbContext db, IOptions<SharingO
             Details = $"Vier-Augen-Prinzip {(settings.RequireApproval ? "ein" : "aus")}",
         });
         await db.SaveChangesAsync(ct);
-        return settings;
+        return settings with { ContractProfile = options.Value.ContractProfile };
     }
 }

@@ -56,6 +56,10 @@ spec:
               value: "{{ int .Values.sharing.defaultLifetimeDays }}.00:00:00"
             - name: Drive__Sharing__MaxLifetime
               value: "{{ int .Values.sharing.maxLifetimeDays }}.00:00:00"
+            - name: Drive__Sharing__ContractProfile
+              value: {{ .Values.sharing.contractProfile | quote }}
+            - name: Drive__Sharing__RequireApproval
+              value: {{ .Values.sharing.requireApproval | quote }}
             - name: Drive__Mail__SmtpHost
               value: {{ .Values.mail.smtpHost | quote }}
             - name: Drive__Mail__SmtpPort

@@ -37,6 +37,12 @@ public sealed class SharingOptions
     /// <summary>Höchstzahl Dateien je Freigabe, auch nach dem Auflösen geteilter Ordner.</summary>
     public int MaxItems { get; set; } = 200;
 
+    /// <summary>
+    /// Vertragsprofil neuer Freigaben: „membership“ (Standard) oder „cx“. „cx“ setzt voraus, dass alle Partner ein
+    /// DataExchangeGovernance-Credential mit der vom Connector erwarteten Version haben.
+    /// </summary>
+    public string ContractProfile { get; set; } = "membership";
+
     /// <summary>Vier-Augen-Prinzip, solange die Verwaltung es nicht selbst eingestellt hat.</summary>
     public bool RequireApproval { get; set; }
 }

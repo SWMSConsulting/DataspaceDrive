@@ -23,6 +23,9 @@ public sealed class Share
 
     public string? SourceFolderIds { get; set; }
 
+    /// <summary>Vertragsprofil der Contract-Policy („membership“ oder „cx“), festgelegt beim Teilen.</summary>
+    public string ContractProfile { get; set; } = "membership";
+
     /// <summary>Vier-Augen-Prinzip: Prüfung vor der Bereitstellung.</summary>
     public ShareApproval Approval { get; set; } = ShareApproval.NotRequired;
 

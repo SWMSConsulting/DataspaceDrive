@@ -6,6 +6,7 @@
   F4  Automatische Annahme: „alle“ in einen festen Ordner, „nur Aktualisierungen“ an den bisherigen Ort
   F5  Vorschau: Bilder inline mit sandboxender CSP, SVG abgelehnt
   F6  Benachrichtigungen: Zähler offener Arbeit beim Empfänger
+  F7  Benachrichtigung über den Dataspace: neues Angebot erscheint beim Empfänger ohne „Jetzt prüfen“ in Sekunden
 Danach räumt das Skript auf (außer mit --keep); das Vier-Augen-Prinzip wird wieder auf den vorherigen Stand gesetzt.
 
   cd e2e && python3 phase3_acceptance.py
@@ -196,6 +197,22 @@ class Extended(Exchange):
             raise Failure(f"Zähler: {summary}")
         return f"Empfänger sieht {summary['inboxNew']} neue(s) Angebot(e) in der Navigation"
 
+    def f7_dataspace_notification(self):
+        root = self.a_user.personal_root()
+        item = self.a_user.upload_bytes(root, f"sofort-{self.stamp}.txt", b"benachrichtigt")
+        self.sender_files.append(item["id"])
+        self.a_user.wait_scanned(root, item["id"])
+        share = self.share([item["id"]], [self.consumer], f"Sofort {self.stamp}")
+        started = time.time()
+        self.wait_active(share["id"])
+        # Kein „Jetzt prüfen“: das Polling käme erst nach bis zu 2 Minuten.
+        wait_for("Angebot ohne Polling", lambda: self.find_offer(share["title"]), 90, 2)
+        seconds = time.time() - started
+        partner = next(p for p in self.b_admin.call("GET", "/api/admin/partners").json() if p["bpn"] == BPNS[self.provider])
+        if not partner["lastNotificationReceivedAt"]:
+            raise Failure("Empfänger hat keine Benachrichtigung vermerkt")
+        return f"Angebot nach {seconds:.0f} s im Eingang (ohne Polling), Benachrichtigung beim Empfänger vermerkt"
+
     def cleanup_extended(self):
         if getattr(self, "restore_partner", None):
             p = self.restore_partner
@@ -237,6 +254,7 @@ def main() -> int:
     check("F4 Automatische Annahme", x.f4_auto_accept)
     check("F5 Vorschau", x.f5_preview)
     check("F6 Benachrichtigungen", x.f6_notifications)
+    check("F7 Benachrichtigung über den Dataspace", x.f7_dataspace_notification)
     if not args.keep:
         check("Testdaten abräumen", x.cleanup_extended)
     return summary()

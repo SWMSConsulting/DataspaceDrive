@@ -169,7 +169,7 @@ public sealed class IncomingTransferWorker(
     private static async Task StartNegotiationAsync(TransferStep step, CancellationToken ct)
     {
         var request = EdcRequests.ContractRequest(step.Offer.OfferId, step.Partner.Did!, step.Offer.AssetId, step.Partner.ProtocolAddress!,
-            step.Partner.Protocol!, ExchangeProfile.MembershipContractPermissions());
+            step.Partner.Protocol!, DriveExchange.PermissionsFor(step.Offer.ContractProfile));
         step.Offer.NegotiationId = await step.Edc.StartEdrNegotiationAsync(request, ct);
         MoveTo(step.Offer, IncomingOfferState.Negotiating, step.Now);
         step.Offer.NextAttemptAt = step.Now + PollStep;

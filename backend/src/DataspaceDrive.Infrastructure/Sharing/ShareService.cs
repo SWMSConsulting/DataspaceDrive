@@ -155,6 +155,9 @@ public sealed class ShareService(
         {
             Id = id, Title = title, Message = message, CreatedBy = principal.UserId, CreatedAt = now, ExpiresAt = expiresAt,
             Approval = requireApproval ? ShareApproval.Pending : ShareApproval.NotRequired,
+            ContractProfile = Swms.Edc.Client.Policies.DriveExchange.IsKnownProfile(_options.ContractProfile)
+                ? _options.ContractProfile
+                : throw new InvalidOperationException($"Unbekanntes Vertragsprofil '{_options.ContractProfile}' (Drive:Sharing:ContractProfile)."),
             LineageId = previous?.LineageId ?? id, Revision = (previous?.Revision ?? 0) + 1, SupersedesShareId = previous?.Id,
             SourceFileIds = fileIds.Count == 0 ? null : string.Join(',', fileIds),
             SourceFolderIds = folderIds.Count == 0 ? null : string.Join(',', folderIds),

@@ -34,6 +34,10 @@
   [value]="requireApproval()"
   (onValueChanged)="setRequireApproval($event.value)"
 ></dx-check-box>
+<p class="hint">
+  Vertragsprofil neuer Freigaben: <strong>{{ contractProfile() === 'cx' ? 'Catena-X (FrameworkAgreement + UsagePurpose)' : 'Mitgliedschaft im Dataspace' }}</strong>
+  (Deployment-Einstellung sharing.contractProfile).
+</p>
 
 <div class="section-header edc-header">
   <h2 class="section-title">Connector-Abgleich</h2>
