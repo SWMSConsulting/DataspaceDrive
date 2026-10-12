@@ -1,6 +1,7 @@
 using DataspaceDrive.Api.Auth;
 using DataspaceDrive.Core.Access;
 using DataspaceDrive.Core.Files;
+using DataspaceDrive.Core.Notifications;
 using DataspaceDrive.Core.Settings;
 using DataspaceDrive.Core.Storage;
 using Microsoft.AspNetCore.Authentication;
@@ -21,7 +22,9 @@ public sealed record StartUploadRequest(Guid FolderId, string FileName, long Siz
 public sealed record CompleteUploadRequest(string? ContentType);
 
 public sealed record MeResponse(Guid Id, string Name, string? Email, IReadOnlyCollection<string> Roles, bool CanShareExternally,
-    bool CanManageInbox, bool IsAdmin, bool CanApprove, bool SharingRequiresApproval);
+    bool CanManageInbox, bool IsAdmin, bool CanApprove, bool SharingRequiresApproval, bool EmailNotifications);
+
+public sealed record PreferencesRequest(bool EmailNotifications);
 
 public static class FileEndpoints
 {
@@ -52,8 +55,18 @@ public static class FileEndpoints
             var principal = await current.PrincipalAsync(ct);
             return new MeResponse(user.Id, user.DisplayName, user.Email, principal.Roles,
                 principal.Roles.Contains(DrivePrincipal.RoleExternalShare), principal.Roles.Contains(DrivePrincipal.RoleInbox),
-                principal.IsAdmin, principal.Roles.Contains(DrivePrincipal.RoleApprover), (await settings.SharingAsync(ct)).RequireApproval);
+                principal.IsAdmin, principal.Roles.Contains(DrivePrincipal.RoleApprover), (await settings.SharingAsync(ct)).RequireApproval,
+                user.EmailNotifications);
         });
+
+        api.MapPut("/me/preferences", async (PreferencesRequest request, CurrentUser current, IUserProvisioning users, CancellationToken ct) =>
+        {
+            await users.SetEmailNotificationsAsync(await current.UserAsync(ct), request.EmailNotifications, ct);
+            return Results.NoContent();
+        });
+
+        api.MapGet("/notifications/summary", async (CurrentUser current, INotificationService notifications, CancellationToken ct) =>
+            await notifications.SummaryAsync(await current.PrincipalAsync(ct), ct));
 
         api.MapGet("/spaces", async (CurrentUser current, IFileService files, CancellationToken ct) =>
             await files.GetSpacesAsync(await current.PrincipalAsync(ct), ct));

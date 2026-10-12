@@ -30,6 +30,7 @@ public sealed class CurrentUser(IHttpContextAccessor accessor, IUserProvisioning
             throw new AccessDeniedException("Dieses Konto ist deaktiviert.");
         var roles = claims.FindAll(oidc.RoleClaim).Select(c => c.Value).ToHashSet(StringComparer.Ordinal);
         var groups = claims.FindAll(oidc.GroupClaim).Select(c => c.Value.TrimStart('/')).ToHashSet(StringComparer.Ordinal);
+        await provisioning.RecordRolesAsync(user, roles, ct);
         var principal = new DrivePrincipal(user.Id, roles, groups);
         _resolved = (user, principal);
         return (user, principal);

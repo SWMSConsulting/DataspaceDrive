@@ -15,6 +15,7 @@ export interface Me {
   canApprove: boolean;
   /** Vier-Augen-Prinzip eingeschaltet: Freigaben warten auf Prüfung. */
   sharingRequiresApproval: boolean;
+  emailNotifications: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -1,6 +1,16 @@
 <div class="page-header">
   <h1 class="page-title">Einstellungen</h1>
 </div>
+
+<h2 class="section-title">Benachrichtigungen</h2>
+<dx-check-box
+  text="E-Mails bei neuen Angeboten, Prüfanfragen, Prüfentscheidungen, Abrufen durch Partner und abgeschlossenen Übernahmen"
+  [value]="auth.me()?.emailNotifications ?? true"
+  (onValueChanged)="setEmailNotifications($event.value)"
+></dx-check-box>
+<p class="hint">Welche E-Mails Sie bekommen, hängt von Ihren Rollen ab. Ohne konfigurierten Mailserver verschickt die Drive keine E-Mails.</p>
+
+<h2 class="section-title">Instanz</h2>
 <p class="hint">Koordinaten dieser Instanz im Dataspace. Sie werden beim Deployment festgelegt.</p>
 
 @if (unavailable()) {

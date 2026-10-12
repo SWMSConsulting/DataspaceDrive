@@ -1,9 +1,16 @@
+import { HttpClient } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
+import { DxCheckBoxModule } from 'devextreme-angular/ui/check-box';
+import notify from 'devextreme/ui/notify';
+import { firstValueFrom } from 'rxjs';
 
+import { AuthService } from '../../core/auth.service';
 import { ConfigService } from '../../core/config.service';
+import { errorText } from '../../core/drive-api.service';
 
 @Component({
   selector: 'app-settings',
+  imports: [DxCheckBoxModule],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',
 })
@@ -12,4 +19,20 @@ export class Settings {
 
   readonly config = this.configService.config;
   readonly unavailable = this.configService.unavailable;
+  readonly auth = inject(AuthService);
+  private readonly http = inject(HttpClient);
+
+  async setEmailNotifications(enabled: boolean): Promise<void> {
+    const me = this.auth.me();
+    if (!me || me.emailNotifications === enabled) {
+      return;
+    }
+    try {
+      await firstValueFrom(this.http.put('/api/me/preferences', { emailNotifications: enabled }));
+      this.auth.me.set({ ...me, emailNotifications: enabled });
+      notify(enabled ? 'E-Mail-Benachrichtigungen eingeschaltet.' : 'E-Mail-Benachrichtigungen ausgeschaltet.', 'success', 2500);
+    } catch (error) {
+      notify(errorText(error), 'error', 4000);
+    }
+  }
 }

@@ -6,6 +6,7 @@ using DataspaceDrive.Core.Inbox;
 using DataspaceDrive.Core.Partners;
 using DataspaceDrive.Core.Scanning;
 using DataspaceDrive.Core.Storage;
+using DataspaceDrive.Infrastructure.Notifications;
 using DataspaceDrive.Infrastructure.Persistence;
 using DataspaceDrive.Infrastructure.Sharing;
 using Microsoft.EntityFrameworkCore;
@@ -93,6 +94,7 @@ public sealed class IncomingTransferWorker(
             return false;
         var partner = await db.Partners.FirstAsync(p => p.Id == offer.PartnerId, ct);
         var step = new TransferStep(scope.ServiceProvider, db, offer, partner, now);
+        var stateBefore = offer.State;
         try
         {
             if (partner.Blocked || !partner.IsResolved)
@@ -131,6 +133,8 @@ public sealed class IncomingTransferWorker(
                 Fail(db, offer, now, offer.Error);
         }
         offer.ConcurrencyStamp = Guid.NewGuid();
+        if (offer.State == IncomingOfferState.Failed && stateBefore != IncomingOfferState.Failed)
+            await scope.ServiceProvider.GetRequiredService<Notifier>().OfferFinishedAsync(offer, ct);
         await db.SaveChangesAsync(ct);
         return true;
     }
@@ -154,6 +158,7 @@ public sealed class IncomingTransferWorker(
             offer.Error = clean ? null : "Mindestens eine Datei ist nach dem Virenscan gesperrt.";
             offer.ConcurrencyStamp = Guid.NewGuid();
             Audit(db, now, clean ? "inbox.completed" : "inbox.quarantined", offer, null);
+            await scope.ServiceProvider.GetRequiredService<Notifier>().OfferFinishedAsync(offer, ct);
             finished++;
         }
         if (finished > 0)

@@ -6,6 +6,7 @@ using DataspaceDrive.Core.Partners;
 using DataspaceDrive.Core.Settings;
 using DataspaceDrive.Core.Shares;
 using DataspaceDrive.Infrastructure.Files;
+using DataspaceDrive.Infrastructure.Notifications;
 using DataspaceDrive.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -16,6 +17,7 @@ public sealed class ShareService(
     DriveDbContext db,
     AccessResolver access,
     IInstanceSettings settings,
+    Notifier notifier,
     IOptions<SharingOptions> options,
     TimeProvider clock) : IShareService
 {
@@ -51,6 +53,8 @@ public sealed class ShareService(
             throw new NotFoundException("Mindestens eine Datei wurde nicht gefunden.");
 
         var share = await CreateRevisionAsync(principal, fileIds, folderIds, partners, request.Title, request.Message, request.ExpiresAt, null, ct);
+        if (share.Approval == ShareApproval.Pending)
+            await notifier.ApprovalRequestedAsync(share, ct);
         await db.SaveChangesAsync(ct);
         return (await SummariesAsync([share], ct))[0];
     }
@@ -91,6 +95,8 @@ public sealed class ShareService(
         if (share.Approval == ShareApproval.NotRequired)
             foreach (var delivery in current)
                 Revoke(principal, delivery, $"ersetzt durch Revision {share.Revision}");
+        else
+            await notifier.ApprovalRequestedAsync(share, ct);
         await db.SaveChangesAsync(ct);
         return (await SummariesAsync([share], ct))[0];
     }
@@ -224,6 +230,7 @@ public sealed class ShareService(
             foreach (var old in await db.Deliveries.Where(d => d.ShareId == previousId).ToListAsync(ct))
                 Revoke(approver, old, $"ersetzt durch Revision {share.Revision}");
         Audit(approver, "share.approved", "share", share.Id, share.Title);
+        await notifier.ShareDecidedAsync(share, true, ct);
         await db.SaveChangesAsync(ct);
         return (await SummariesAsync([share], ct))[0];
     }
@@ -240,6 +247,7 @@ public sealed class ShareService(
         share.DecidedAt = Now;
         share.DecisionNote = note;
         Audit(approver, "share.rejected", "share", share.Id, note is null ? share.Title : $"{share.Title}: {note}");
+        await notifier.ShareDecidedAsync(share, false, ct);
         await db.SaveChangesAsync(ct);
         return (await SummariesAsync([share], ct))[0];
     }

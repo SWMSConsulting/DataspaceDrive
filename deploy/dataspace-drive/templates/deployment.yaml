@@ -56,6 +56,24 @@ spec:
               value: "{{ int .Values.sharing.defaultLifetimeDays }}.00:00:00"
             - name: Drive__Sharing__MaxLifetime
               value: "{{ int .Values.sharing.maxLifetimeDays }}.00:00:00"
+            - name: Drive__Mail__SmtpHost
+              value: {{ .Values.mail.smtpHost | quote }}
+            - name: Drive__Mail__SmtpPort
+              value: {{ .Values.mail.smtpPort | quote }}
+            - name: Drive__Mail__UseStartTls
+              value: {{ .Values.mail.useStartTls | quote }}
+            - name: Drive__Mail__Username
+              value: {{ .Values.mail.username | quote }}
+            - name: Drive__Mail__Password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "drive.secretName" . }}
+                  key: smtp-password
+                  optional: true
+            - name: Drive__Mail__From
+              value: {{ .Values.mail.from | quote }}
+            - name: Drive__Mail__PublicUrl
+              value: "https://{{ .Values.ingress.host }}"
             - name: Drive__Inbox__PollInterval
               value: {{ .Values.inbox.pollInterval | quote }}
             - name: Drive__Inbox__SegmentSize

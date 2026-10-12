@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using DataspaceDrive.Core.Audit;
 using DataspaceDrive.Core.Inbox;
 using DataspaceDrive.Core.Partners;
+using DataspaceDrive.Infrastructure.Notifications;
 using DataspaceDrive.Infrastructure.Persistence;
 using DataspaceDrive.Infrastructure.Sharing;
 using Microsoft.EntityFrameworkCore;
@@ -86,7 +87,7 @@ public sealed class InboxPoller(
         {
             try
             {
-                found += await PollPartnerAsync(db, edc, partner, ownBpn, now, ct);
+                found += await PollPartnerAsync(db, edc, scope.ServiceProvider.GetRequiredService<Notifier>(), partner, ownBpn, now, ct);
                 partner.LastPollError = null;
             }
             catch (Exception ex) when (ex is EdcException or HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
@@ -109,7 +110,8 @@ public sealed class InboxPoller(
         return found;
     }
 
-    private async Task<int> PollPartnerAsync(DriveDbContext db, EdcManagementClient edc, Partner partner, string ownBpn, DateTime now, CancellationToken ct)
+    private async Task<int> PollPartnerAsync(DriveDbContext db, EdcManagementClient edc, Notifier notifier, Partner partner, string ownBpn, DateTime now,
+        CancellationToken ct)
     {
         var offers = new Dictionary<string, DeliveryOffer>();
         for (var page = 0; page < MaxPages; page++)
@@ -136,6 +138,7 @@ public sealed class InboxPoller(
 
         var existing = await db.IncomingOffers.Where(o => o.PartnerId == partner.Id).ToListAsync(ct);
         var created = 0;
+        var fresh = new List<IncomingOffer>();
         foreach (var offer in offers.Values)
         {
             var known = existing.FirstOrDefault(e => e.AssetId == offer.AssetId);
@@ -171,11 +174,14 @@ public sealed class InboxPoller(
                 Details = $"{partner.Bpn}: {incoming.Title}, {offer.Items.Count} Datei(en), {offer.TotalSize} Bytes",
             });
             await AutoAcceptAsync(db, partner, incoming, now, ct);
+            if (incoming.State == IncomingOfferState.New)
+                fresh.Add(incoming);
             created++;
         }
         // Nicht mehr im Katalog: zurückgezogen (Widerruf oder Ablauf beim Absender).
         foreach (var offer in existing.Where(e => e.State == IncomingOfferState.New && !offers.ContainsKey(e.AssetId)))
             IncomingTransferWorker.MoveTo(offer, IncomingOfferState.Withdrawn, now);
+        await notifier.NewOffersAsync(partner.Name, fresh, ct);
         return created;
     }
 

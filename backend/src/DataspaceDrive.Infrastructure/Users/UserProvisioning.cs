@@ -30,6 +30,23 @@ public sealed class UserProvisioning(DriveDbContext db, TimeProvider clock) : IU
         return user;
     }
 
+    public async Task RecordRolesAsync(DriveUser user, IReadOnlyCollection<string> roles, CancellationToken ct)
+    {
+        var marker = roles.Count == 0 ? null : "," + string.Join(',', roles.Order(StringComparer.Ordinal)) + ",";
+        if (marker is { Length: > 1000 })
+            marker = marker[..1000];
+        if (user.Roles == marker)
+            return;
+        user.Roles = marker;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task SetEmailNotificationsAsync(DriveUser user, bool enabled, CancellationToken ct)
+    {
+        user.EmailNotifications = enabled;
+        await db.SaveChangesAsync(ct);
+    }
+
     private async Task<DriveUser> CreateAsync(string subject, string displayName, string? email, DateTime now, CancellationToken ct)
     {
         var user = new DriveUser

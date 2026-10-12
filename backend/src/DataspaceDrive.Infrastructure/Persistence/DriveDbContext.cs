@@ -31,6 +31,7 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
     public DbSet<IncomingOffer> IncomingOffers => Set<IncomingOffer>();
     public DbSet<IncomingItem> IncomingItems => Set<IncomingItem>();
     public DbSet<InstanceSetting> Settings => Set<InstanceSetting>();
+    public DbSet<Core.Notifications.MailMessage> MailMessages => Set<Core.Notifications.MailMessage>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -41,6 +42,7 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
             e.Property(u => u.Subject).HasMaxLength(255);
             e.Property(u => u.Email).HasMaxLength(320);
             e.Property(u => u.DisplayName).HasMaxLength(255);
+            e.Property(u => u.Roles).HasMaxLength(1000);
         });
 
         model.Entity<Space>(e =>
@@ -120,6 +122,16 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
         });
 
         model.Entity<DataProtectionKey>().ToTable("data_protection_keys");
+
+        model.Entity<Core.Notifications.MailMessage>(e =>
+        {
+            e.ToTable("mail_messages");
+            e.Property(m => m.To).HasMaxLength(320);
+            e.Property(m => m.Subject).HasMaxLength(300);
+            e.Property(m => m.Body).HasMaxLength(10000);
+            e.Property(m => m.LastError).HasMaxLength(1000);
+            e.HasIndex(m => new { m.SentAt, m.NextAttemptAt });
+        });
 
         model.Entity<InstanceSetting>(e =>
         {

@@ -1,4 +1,5 @@
 using DataspaceDrive.Core.Shares;
+using DataspaceDrive.Infrastructure.Notifications;
 using DataspaceDrive.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -13,7 +14,8 @@ namespace DataspaceDrive.Infrastructure.Sharing;
 /// ein segmentierter Abruf viele Anfragen stellt; ein Widerruf wirkt trotzdem sofort, denn er ändert zuerst den
 /// Zustand der Zustellung.
 /// </summary>
-public sealed class DeliveryDirectory(DriveDbContext db, IServiceProvider services, IMemoryCache cache, TimeProvider clock) : IDeliveryDirectory
+public sealed class DeliveryDirectory(DriveDbContext db, IServiceProvider services, IMemoryCache cache, Notifier notifier, TimeProvider clock)
+    : IDeliveryDirectory
 {
     private static readonly TimeSpan AgreementCacheTime = TimeSpan.FromSeconds(30);
 
@@ -73,8 +75,16 @@ public sealed class DeliveryDirectory(DriveDbContext db, IServiceProvider servic
         });
         await db.SaveChangesAsync(ct);
         if (decision == DeliveryAccessDecision.Allowed && (offset ?? 0) == 0)
+        {
+            var first = await db.Deliveries.Where(d => d.Id == id).Select(d => d.RetrievalCount).FirstAsync(ct) == 0;
             await db.Deliveries.Where(d => d.Id == id)
                 .ExecuteUpdateAsync(u => u.SetProperty(d => d.RetrievalCount, d => d.RetrievalCount + 1).SetProperty(d => d.LastRetrievalAt, now), ct);
+            if (first)
+            {
+                await notifier.FirstRetrievalAsync(id, ct);
+                await db.SaveChangesAsync(ct);
+            }
+        }
     }
 
     private static string CacheKey(string agreementId) => "agreement:" + agreementId;

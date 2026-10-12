@@ -20,6 +20,15 @@ sharing:
   defaultLifetimeDays: 30
   maxLifetimeDays: 90
 
+# E-Mail-Benachrichtigungen über SMTP; ohne Host verschickt die Drive keine E-Mails.
+# Ein Passwort steht im Secret unter smtp-password (optional).
+mail:
+  smtpHost: ""
+  smtpPort: 25
+  useStartTls: false
+  username: ""
+  from: "DataspaceDrive <noreply@example.com>"
+
 # Eingang: Abfrage der Partnerkataloge und Abruf in Abschnitten
 inbox:
   pollInterval: "00:02:00"

@@ -26,3 +26,9 @@ oidc:
 
 scanning:
   clamavHost: clamav.windx-shared.svc.cluster.local
+
+# Demo: alle E-Mails landen im Mailpit in windx-shared (nichts geht nach außen).
+mail:
+  smtpHost: mailpit.windx-shared.svc.cluster.local
+  smtpPort: 1025
+  from: "DataspaceDrive Dave <drive@dave.windx.example>"

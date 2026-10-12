@@ -89,6 +89,7 @@ public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clo
                 delivery.ConcurrencyStamp = Guid.NewGuid();
                 task.CompletedAt = now;
                 Audit(db, now, "delivery.provisioning-failed", delivery, task.LastError);
+                await scope.ServiceProvider.GetRequiredService<Notifications.Notifier>().DeliveryFailedAsync(delivery, ct);
             }
         }
         try

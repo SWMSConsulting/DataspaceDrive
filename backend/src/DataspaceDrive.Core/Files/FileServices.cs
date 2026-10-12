@@ -67,4 +67,9 @@ public interface IUserProvisioning
 {
     /// <summary>Legt den Nutzer beim ersten Login samt persönlichem Bereich an und aktualisiert Name und E-Mail.</summary>
     Task<DriveUser> EnsureUserAsync(string subject, string displayName, string? email, CancellationToken ct);
+
+    /// <summary>Merkt sich die Rollen aus der Anmeldung, wenn sie sich geändert haben.</summary>
+    Task RecordRolesAsync(DriveUser user, IReadOnlyCollection<string> roles, CancellationToken ct);
+
+    Task SetEmailNotificationsAsync(DriveUser user, bool enabled, CancellationToken ct);
 }

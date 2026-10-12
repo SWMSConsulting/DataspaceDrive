@@ -47,6 +47,9 @@ public sealed class SharingApiFactory(FakeDataspace dataspace, FakeDataspace.Par
             ["Drive:Sharing:InstanceId"] = $"drive-{participant.Name}",
             ["Drive:Inbox:SegmentSize"] = (1024 * 1024).ToString(),
             ["Drive:BackgroundWorkers:Enabled"] = "false",
+            // E-Mails landen in der Outbox; versendet wird im Test nur, wo er es selbst anstößt.
+            ["Drive:Mail:SmtpHost"] = "smtp.invalid",
+            ["Drive:Mail:PublicUrl"] = $"https://drive-{participant.Name}.example",
         }));
         builder.ConfigureTestServices(services =>
         {
@@ -709,5 +712,135 @@ public sealed class SharingFlowTests : IAsyncLifetime
         var copy = (await ReadAsync(await bob.GetAsync($"/api/folders/{bobRoot}/children"))).GetProperty("items").EnumerateArray()
             .Single(i => i.GetProperty("name").GetString() == "Wartung.pdf");
         Assert.Equal("zwei", await (await bob.GetAsync($"/api/files/{copy.GetProperty("id").GetGuid()}/content")).Content.ReadAsStringAsync());
+    }
+
+    private List<DataspaceDrive.Core.Notifications.MailMessage> Mails(SharingApiFactory factory)
+    {
+        using var scope = factory.Services.CreateScope();
+        return scope.ServiceProvider.GetRequiredService<DriveDbContext>().MailMessages.OrderBy(m => m.Id).ToList();
+    }
+
+    [Fact]
+    public async Task Notifications_count_open_work_and_mail_the_right_people()
+    {
+        var bob = await BobInboxAsync();
+        var bobQuiet = await _bob.ClientForAsync("bob-quiet", DrivePrincipal.RoleUser, DrivePrincipal.RoleInbox);
+        (await bobQuiet.PutAsJsonAsync("/api/me/preferences", new { emailNotifications = false })).EnsureSuccessStatusCode();
+        Assert.False((await ReadAsync(await bobQuiet.GetAsync("/api/me"))).GetProperty("emailNotifications").GetBoolean());
+
+        var (alice, share, _) = await ShareFileAsync("Benachrichtigung.txt", 64);
+        await _bob.PollAsync();
+        var summary = await ReadAsync(await bob.GetAsync("/api/notifications/summary"));
+        Assert.Equal(1, summary.GetProperty("inboxNew").GetInt32());
+        Assert.Equal(JsonValueKind.Null, summary.GetProperty("approvalsPending").ValueKind);
+        var offerMail = Assert.Single(Mails(_bob));
+        Assert.Equal("bob-user@example.org", offerMail.To);
+        Assert.Contains("Alice AG", offerMail.Subject);
+        Assert.Contains("https://drive-bob.example/inbox", offerMail.Body);
+
+        await AcceptOnlyNewOfferAsync(bob, await RootFolderAsync(bob));
+        Assert.Contains(Mails(_bob), m => m.To == "bob-user@example.org" && m.Subject.StartsWith("Übernommen", StringComparison.Ordinal));
+        // Erster Abruf: der Absender erfährt es.
+        Assert.Contains(Mails(_alice), m => m.To == "alice-user@example.org" && m.Subject.Contains("abgerufen", StringComparison.Ordinal));
+
+        var approver = await EnableApprovalAsync();
+        await RequestShareAsync(alice, "Zur Prüfung.txt", "p"u8.ToArray());
+        Assert.Contains(Mails(_alice), m => m.To == "alice-approver@example.org" && m.Subject.StartsWith("Freigabe zu prüfen", StringComparison.Ordinal));
+        Assert.Equal(1, (await ReadAsync(await approver.GetAsync("/api/notifications/summary"))).GetProperty("approvalsPending").GetInt32());
+    }
+
+    [Fact]
+    public async Task Mail_worker_delivers_the_outbox_over_smtp()
+    {
+        using var smtp = new FakeSmtpServer();
+        var bob = await BobInboxAsync();
+        await ShareFileAsync("Versand.txt", 10);
+        await _bob.PollAsync();
+        var worker = ActivatorUtilities.CreateInstance<DataspaceDrive.Infrastructure.Notifications.MailWorker>(_bob.Services,
+            Microsoft.Extensions.Options.Options.Create(new DataspaceDrive.Infrastructure.Notifications.MailOptions
+            {
+                SmtpHost = "127.0.0.1", SmtpPort = smtp.Port, From = "DataspaceDrive Bob <drive@bob.example>",
+            }));
+
+        Assert.Equal(1, await worker.SendPendingAsync(CancellationToken.None));
+        var message = Assert.Single(smtp.Messages);
+        Assert.Contains("RCPT TO:<bob-user@example.org>", message);
+        Assert.Contains("Alice AG", message);
+        Assert.NotNull(Assert.Single(Mails(_bob)).SentAt);
+    }
+}
+
+/// <summary>Minimaler SMTP-Server für den Versandtest (EHLO, MAIL, RCPT, DATA, QUIT).</summary>
+public sealed class FakeSmtpServer : IDisposable
+{
+    private readonly System.Net.Sockets.TcpListener _listener = new(System.Net.IPAddress.Loopback, 0);
+    private readonly CancellationTokenSource _stop = new();
+
+    public FakeSmtpServer()
+    {
+        _listener.Start();
+        _ = Task.Run(AcceptAsync);
+    }
+
+    public int Port => ((System.Net.IPEndPoint)_listener.LocalEndpoint).Port;
+
+    public List<string> Messages { get; } = [];
+
+    private async Task AcceptAsync()
+    {
+        while (!_stop.IsCancellationRequested)
+        {
+            System.Net.Sockets.TcpClient client;
+            try
+            {
+                client = await _listener.AcceptTcpClientAsync(_stop.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            _ = Task.Run(() => HandleAsync(client));
+        }
+    }
+
+    private async Task HandleAsync(System.Net.Sockets.TcpClient client)
+    {
+        using (client)
+        await using (var stream = client.GetStream())
+        {
+            using var reader = new StreamReader(stream, System.Text.Encoding.ASCII);
+            await using var writer = new StreamWriter(stream, System.Text.Encoding.ASCII) { NewLine = "\r\n", AutoFlush = true };
+            await writer.WriteLineAsync("220 fake ESMTP");
+            var transcript = new System.Text.StringBuilder();
+            while (await reader.ReadLineAsync() is { } line)
+            {
+                transcript.AppendLine(line);
+                var command = line.ToUpperInvariant();
+                if (command.StartsWith("EHLO", StringComparison.Ordinal) || command.StartsWith("HELO", StringComparison.Ordinal))
+                    await writer.WriteLineAsync("250 fake");
+                else if (command == "DATA")
+                {
+                    await writer.WriteLineAsync("354 go");
+                    while (await reader.ReadLineAsync() is { } data && data != ".")
+                        transcript.AppendLine(data);
+                    lock (Messages)
+                        Messages.Add(transcript.ToString());
+                    await writer.WriteLineAsync("250 queued");
+                }
+                else if (command == "QUIT")
+                {
+                    await writer.WriteLineAsync("221 bye");
+                    return;
+                }
+                else
+                    await writer.WriteLineAsync("250 ok");
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        _stop.Cancel();
+        _listener.Stop();
     }
 }
