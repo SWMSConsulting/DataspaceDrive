@@ -58,7 +58,7 @@ export interface ShareSummary {
   createdByName: string;
   createdAt: string;
   expiresAt: string;
-  items: { itemKey: string; name: string; size: number; sha256: string; fileEntryId: string }[];
+  items: { itemKey: string; name: string; size: number; sha256: string; fileEntryId: string; relativePath: string | null }[];
   deliveries: DeliveryInfo[];
 }
 
@@ -81,6 +81,7 @@ export interface IncomingItemInfo {
   receivedBytes: number;
   fileEntryId: string | null;
   scanStatus: ScanStatus | null;
+  relativePath: string | null;
 }
 
 export interface IncomingOfferInfo {
@@ -106,6 +107,7 @@ export interface IncomingOfferInfo {
 
 export interface CreateShareRequest {
   fileIds: string[];
+  folderIds: string[];
   partnerIds: string[];
   title?: string;
   message?: string;

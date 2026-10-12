@@ -34,7 +34,8 @@ public sealed class SharingOptions
 
     public TimeSpan DefaultLifetime { get; set; } = TimeSpan.FromDays(30);
     public TimeSpan MaxLifetime { get; set; } = TimeSpan.FromDays(90);
-    public int MaxItems { get; set; } = 50;
+    /// <summary>Höchstzahl Dateien je Freigabe, auch nach dem Auflösen geteilter Ordner.</summary>
+    public int MaxItems { get; set; } = 200;
 }
 
 /// <summary>Eingang (<c>Drive:Inbox</c>).</summary>

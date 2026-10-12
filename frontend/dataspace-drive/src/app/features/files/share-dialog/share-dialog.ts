@@ -12,6 +12,8 @@ import { ShareTarget, SharingApiService } from '../../../core/sharing-api.servic
 export interface ShareFile {
   id: string;
   name: string;
+  /** Ordner werden mit allen Unterordnern und Dateien geteilt. */
+  isDirectory: boolean;
 }
 
 const day = 24 * 60 * 60 * 1000;
@@ -59,7 +61,7 @@ export class ShareDialog {
       const files = this.files();
       if (files) {
         this.partnerIds.set([]);
-        this.title.set(files.length === 1 ? files[0].name : `${files.length} Dateien`);
+        this.title.set(files.length === 1 ? files[0].name : `${files.length} Elemente`);
         this.message.set('');
         this.expiresAt.set(new Date(Date.now() + 30 * day));
         void this.loadTargets();
@@ -96,7 +98,8 @@ export class ShareDialog {
     this.saving.set(true);
     try {
       const share = await this.api.createShare({
-        fileIds: files.map((f) => f.id),
+        fileIds: files.filter((f) => !f.isDirectory).map((f) => f.id),
+        folderIds: files.filter((f) => f.isDirectory).map((f) => f.id),
         partnerIds: this.partnerIds(),
         title: this.title().trim() || undefined,
         message: this.message().trim() || undefined,

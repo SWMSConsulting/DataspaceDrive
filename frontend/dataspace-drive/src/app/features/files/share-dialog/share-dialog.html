@@ -11,7 +11,13 @@
   <div *dxTemplate="let data of 'content'">
     <ul class="file-list">
       @for (file of files() ?? []; track file.id) {
-        <li>{{ file.name }}</li>
+        <li>
+          @if (file.isDirectory) {
+            <i class="dx-icon dx-icon-folder"></i> {{ file.name }} <span class="folder-note">(Ordner mit allen Unterordnern)</span>
+          } @else {
+            {{ file.name }}
+          }
+        </li>
       }
     </ul>
 

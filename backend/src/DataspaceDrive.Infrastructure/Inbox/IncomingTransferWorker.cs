@@ -271,9 +271,11 @@ public sealed class IncomingTransferWorker(
         var folder = await db.Folders.FirstOrDefaultAsync(f => f.Id == step.Offer.TargetFolderId && f.DeletedAt == null, ct)
             ?? throw new TransferRefusedException("Der Zielordner existiert nicht mehr.");
         var items = await db.IncomingItems.Where(i => i.OfferId == step.Offer.Id && i.FileVersionId == null).OrderBy(i => i.ItemKey).ToListAsync(ct);
+        var folders = new Dictionary<string, Folder>(StringComparer.Ordinal) { [""] = folder };
         foreach (var item in items)
         {
             var versionId = Guid.NewGuid();
+            var target = await EnsureFolderAsync(db, folders, item.RelativePath, step.Offer.DecidedBy!.Value, step.Now, ct);
             var blob = await staging.PromoteAsync(item.Id, $"blobs/{versionId:N}", ct);
             if (blob.Length != item.SizeBytes || !string.Equals(blob.Sha256, item.Sha256, StringComparison.OrdinalIgnoreCase))
             {
@@ -281,10 +283,10 @@ public sealed class IncomingTransferWorker(
                 item.ReceivedBytes = 0;
                 throw new TransferRefusedException($"„{item.Name}“ weicht vom Manifest ab (Größe oder SHA-256); die Datei wurde verworfen.");
             }
-            var name = await FreeNameAsync(db, folder.Id, item.Name, ct);
+            var name = await FreeNameAsync(db, target.Id, item.Name, ct);
             var file = new FileEntry
             {
-                Id = Guid.NewGuid(), SpaceId = folder.SpaceId, FolderId = folder.Id, Name = name, NormalizedName = ItemName.Normalize(name),
+                Id = Guid.NewGuid(), SpaceId = target.SpaceId, FolderId = target.Id, Name = name, NormalizedName = ItemName.Normalize(name),
                 CurrentVersionId = versionId, CreatedAt = step.Now, CreatedBy = step.Offer.DecidedBy!.Value, ModifiedAt = step.Now,
             };
             db.Files.Add(file);
@@ -310,6 +312,42 @@ public sealed class IncomingTransferWorker(
         {
             logger.LogInformation("Transfer {TransferProcessId} konnte nicht beendet werden: {Error}", step.Offer.TransferProcessId, ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Legt den relativen Ordnerpfad unter dem Zielordner an oder nutzt vorhandene gleichnamige Ordner. Heißt eine Datei
+    /// so wie ein benötigter Ordner, bekommt der Ordner einen Zähler.
+    /// </summary>
+    private static async Task<Folder> EnsureFolderAsync(DriveDbContext db, Dictionary<string, Folder> folders, string? relativePath, Guid userId,
+        DateTime now, CancellationToken ct)
+    {
+        var current = folders[""];
+        var key = "";
+        foreach (var segment in (relativePath ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            key = key.Length == 0 ? segment : key + "/" + segment;
+            if (folders.TryGetValue(key, out var known))
+            {
+                current = known;
+                continue;
+            }
+            var normalized = ItemName.Normalize(segment);
+            var parentId = current.Id;
+            var existing = await db.Folders.FirstOrDefaultAsync(f => f.ParentId == parentId && f.DeletedAt == null && f.NormalizedName == normalized, ct);
+            if (existing is null)
+            {
+                var name = await FreeNameAsync(db, parentId, segment, ct);
+                existing = new Folder
+                {
+                    Id = Guid.NewGuid(), SpaceId = current.SpaceId, ParentId = parentId, Name = name, NormalizedName = ItemName.Normalize(name),
+                    CreatedAt = now, CreatedBy = userId, ModifiedAt = now,
+                };
+                db.Folders.Add(existing);
+                await db.SaveChangesAsync(ct);
+            }
+            folders[key] = current = existing;
+        }
+        return current;
     }
 
     private static async Task<string> FreeNameAsync(DriveDbContext db, Guid folderId, string name, CancellationToken ct)

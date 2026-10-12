@@ -427,4 +427,53 @@ public sealed class SharingFlowTests : IAsyncLifetime
         Assert.Contains(status.GetProperty("findings").EnumerateArray(),
             f => f.GetProperty("objectId").GetString() == $"drive-cd-{deliveryId}" && f.GetProperty("severity").GetString() == "Warning");
     }
+
+    [Fact]
+    public async Task Shared_folder_arrives_with_its_structure()
+    {
+        var alice = await AliceSharerAsync();
+        var root = await RootFolderAsync(alice);
+        var begehung = (await ReadAsync(await alice.PostAsJsonAsync("/api/folders", new { parentId = root, name = "Begehung WEA 7" }))).GetProperty("id").GetGuid();
+        var fotos = (await ReadAsync(await alice.PostAsJsonAsync("/api/folders", new { parentId = begehung, name = "Fotos" }))).GetProperty("id").GetGuid();
+        var protocol = RandomNumberGenerator.GetBytes(300);
+        var photo = RandomNumberGenerator.GetBytes(5000);
+        await UploadAsync(alice, begehung, "Protokoll.txt", protocol);
+        await UploadAsync(alice, fotos, "Rotor.jpg", photo);
+        await UploadAsync(alice, fotos, "Turm.jpg", RandomNumberGenerator.GetBytes(10));
+        var partnerId = (await ReadAsync(await alice.GetAsync("/api/partners/targets"))).EnumerateArray().Single().GetProperty("id").GetGuid();
+
+        var share = await ReadAsync(await alice.PostAsJsonAsync("/api/shares", new { folderIds = new[] { begehung }, partnerIds = new[] { partnerId } }));
+        Assert.Equal("Begehung WEA 7", share.GetProperty("title").GetString());
+        Assert.Equal(["Begehung WEA 7", "Begehung WEA 7/Fotos", "Begehung WEA 7/Fotos"],
+            share.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("relativePath").GetString()));
+        await _alice.RunDeliveryWorkerAsync();
+
+        await _bob.PollAsync();
+        var bob = await BobInboxAsync();
+        var bobRoot = await RootFolderAsync(bob);
+        var offerId = (await ReadAsync(await bob.GetAsync("/api/inbox"))).EnumerateArray().Single().GetProperty("id").GetGuid();
+        await ReadAsync(await bob.PostAsJsonAsync($"/api/inbox/{offerId}/accept", new { folderId = bobRoot }));
+        await _bob.RunInboxAsync();
+
+        Assert.Equal("Completed", (await ReadAsync(await bob.GetAsync("/api/inbox"))).EnumerateArray().Single().GetProperty("state").GetString());
+        async Task<JsonElement[]> Children(Guid folder) =>
+            (await ReadAsync(await bob.GetAsync($"/api/folders/{folder}/children"))).GetProperty("items").EnumerateArray().ToArray();
+        var top = (await Children(bobRoot)).Single(i => i.GetProperty("name").GetString() == "Begehung WEA 7");
+        var inside = await Children(top.GetProperty("id").GetGuid());
+        var protocolCopy = inside.Single(i => i.GetProperty("name").GetString() == "Protokoll.txt");
+        var fotosCopy = inside.Single(i => i.GetProperty("name").GetString() == "Fotos" && i.GetProperty("isDirectory").GetBoolean());
+        var photos = await Children(fotosCopy.GetProperty("id").GetGuid());
+        Assert.Equal(["Rotor.jpg", "Turm.jpg"], photos.Select(p => p.GetProperty("name").GetString()).Order());
+        var photoCopy = photos.Single(p => p.GetProperty("name").GetString() == "Rotor.jpg");
+        Assert.Equal(SHA256.HashData(photo), SHA256.HashData(await (await bob.GetAsync($"/api/files/{photoCopy.GetProperty("id").GetGuid()}/content")).Content.ReadAsByteArrayAsync()));
+        Assert.Equal(SHA256.HashData(protocol), SHA256.HashData(await (await bob.GetAsync($"/api/files/{protocolCopy.GetProperty("id").GetGuid()}/content")).Content.ReadAsByteArrayAsync()));
+    }
+
+    [Theory]
+    [InlineData("../a/./b//c", "a/b/c")]
+    [InlineData("a:b/c*d", "a_b/c_d")]
+    [InlineData("..", null)]
+    [InlineData(null, null)]
+    public void Folder_paths_from_partners_are_sanitized(string? path, string? expected) =>
+        Assert.Equal(expected, InboxPoller.SafePath(path));
 }

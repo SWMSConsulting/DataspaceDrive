@@ -28,17 +28,30 @@ public sealed class ShareService(
         if (!principal.Roles.Contains(DrivePrincipal.RoleExternalShare))
             throw new AccessDeniedException("Freigaben an andere Unternehmen sind für dieses Konto nicht freigeschaltet.");
         var fileIds = (request.FileIds ?? []).Distinct().ToList();
+        var folderIds = (request.FolderIds ?? []).Distinct().ToList();
         var partnerIds = (request.PartnerIds ?? []).Distinct().ToList();
-        if (fileIds.Count == 0)
-            throw new InvalidInputException("Bitte mindestens eine Datei auswählen.");
-        if (fileIds.Count > _options.MaxItems)
-            throw new InvalidInputException($"Eine Freigabe umfasst höchstens {_options.MaxItems} Dateien.");
+        if (fileIds.Count == 0 && folderIds.Count == 0)
+            throw new InvalidInputException("Bitte mindestens eine Datei oder einen Ordner auswählen.");
         if (partnerIds.Count == 0)
             throw new InvalidInputException("Bitte mindestens einen Partner auswählen.");
 
-        var files = await db.Files.Where(f => fileIds.Contains(f.Id) && f.DeletedAt == null).ToListAsync(ct);
-        if (files.Count != fileIds.Count)
+        var direct = await db.Files.Where(f => fileIds.Contains(f.Id) && f.DeletedAt == null).ToListAsync(ct);
+        if (direct.Count != fileIds.Count)
             throw new NotFoundException("Mindestens eine Datei wurde nicht gefunden.");
+        // Einzeln gewählte Dateien liegen beim Empfänger oben, Ordnerinhalte unter ihrem Pfad.
+        var entries = fileIds.Select(id => (File: direct.Single(f => f.Id == id), Path: (string?)null)).ToList();
+        var folderNames = new List<string>();
+        foreach (var folderId in folderIds)
+        {
+            var (name, folderFiles) = await ExpandFolderAsync(principal, folderId, ct);
+            folderNames.Add(name);
+            entries.AddRange(folderFiles.Where(f => entries.All(e => e.File.Id != f.File.Id)));
+        }
+        if (entries.Count == 0)
+            throw new InvalidInputException("Die gewählten Ordner enthalten keine Dateien.");
+        if (entries.Count > _options.MaxItems)
+            throw new InvalidInputException($"Eine Freigabe umfasst höchstens {_options.MaxItems} Dateien (gewählt: {entries.Count}).");
+        var files = entries.Select(e => e.File).ToList();
         var versionIds = files.Select(f => f.CurrentVersionId).ToList();
         var versions = await db.FileVersions.Where(v => versionIds.Contains(v.Id)).ToDictionaryAsync(v => v.Id, ct);
         foreach (var file in files)
@@ -69,7 +82,7 @@ public sealed class ShareService(
         if (expiresAt > now + _options.MaxLifetime + TimeSpan.FromDays(1))
             throw new InvalidInputException($"Freigaben laufen höchstens {_options.MaxLifetime.TotalDays:0} Tage.");
         var title = string.IsNullOrWhiteSpace(request.Title)
-            ? (files.Count == 1 ? files[0].Name : $"{files.Count} Dateien")
+            ? (folderNames.Count == 1 && fileIds.Count == 0 ? folderNames[0] : files.Count == 1 ? files[0].Name : $"{files.Count} Dateien")
             : request.Title.Trim();
         if (title.Length > MaxTitleLength)
             throw new InvalidInputException($"Der Titel darf höchstens {MaxTitleLength} Zeichen lang sein.");
@@ -80,15 +93,15 @@ public sealed class ShareService(
         var share = new Share { Id = Guid.NewGuid(), Title = title, Message = message, CreatedBy = principal.UserId, CreatedAt = now, ExpiresAt = expiresAt };
         db.Shares.Add(share);
         // Reihenfolge wie ausgewählt; die Schlüssel "1", "2", … stehen im Manifest und im Abrufpfad.
-        var ordered = fileIds.Select(id => files.Single(f => f.Id == id)).ToList();
-        for (var i = 0; i < ordered.Count; i++)
+        for (var i = 0; i < entries.Count; i++)
         {
-            var version = versions[ordered[i].CurrentVersionId!.Value];
+            var (file, path) = entries[i];
+            var version = versions[file.CurrentVersionId!.Value];
             db.ShareItems.Add(new ShareItem
             {
                 Id = Guid.NewGuid(), ShareId = share.Id, ItemKey = (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
-                FileEntryId = ordered[i].Id, FileVersionId = version.Id, Name = ordered[i].Name, SizeBytes = version.SizeBytes,
-                Sha256 = version.Sha256, ContentType = version.ContentType, BlobKey = version.BlobKey,
+                FileEntryId = file.Id, FileVersionId = version.Id, Name = file.Name, SizeBytes = version.SizeBytes,
+                Sha256 = version.Sha256, ContentType = version.ContentType, BlobKey = version.BlobKey, RelativePath = path,
             });
         }
         foreach (var partner in partners)
@@ -102,7 +115,8 @@ public sealed class ShareService(
             db.DeliveryTasks.Add(new DeliveryTask { Kind = DeliveryTaskKind.Provision, DeliveryId = delivery.Id, CreatedAt = now, NextAttemptAt = now });
         }
         Audit(principal, "share.created", "share", share.Id,
-            $"{title}: {ordered.Count} Datei(en) an {string.Join(", ", partners.Select(p => p.Bpn))}, Ablauf {expiresAt:O}");
+            $"{title}: {entries.Count} Datei(en){(folderNames.Count > 0 ? " aus " + string.Join(", ", folderNames) : "")} an "
+            + $"{string.Join(", ", partners.Select(p => p.Bpn))}, Ablauf {expiresAt:O}");
         await db.SaveChangesAsync(ct);
         return (await SummariesAsync([share], ct))[0];
     }
@@ -159,6 +173,36 @@ public sealed class ShareService(
         return (await SummariesAsync([share], ct))[0].Deliveries.Single(d => d.Id == delivery.Id);
     }
 
+    /// <summary>
+    /// Alle Dateien eines Ordners mit Unterordnern; der Pfad beginnt mit dem Ordnernamen („Begehung/Fotos“).
+    /// Die Rechte prüft der Aufrufer je Datei, hier nur das Leserecht auf den Ordner selbst.
+    /// </summary>
+    private async Task<(string Name, List<(FileEntry File, string? Path)> Files)> ExpandFolderAsync(DrivePrincipal principal, Guid folderId,
+        CancellationToken ct)
+    {
+        const int maxDepth = 20;
+        var root = await db.Folders.FirstOrDefaultAsync(f => f.Id == folderId && f.DeletedAt == null, ct)
+            ?? throw new NotFoundException("Mindestens ein Ordner wurde nicht gefunden.");
+        await access.RequireAsync(principal, root.SpaceId, Permission.Read, ct);
+        var paths = new Dictionary<Guid, string> { [root.Id] = root.Name };
+        var frontier = new List<Guid> { root.Id };
+        for (var depth = 0; frontier.Count > 0; depth++)
+        {
+            if (depth >= maxDepth)
+                throw new InvalidInputException($"„{root.Name}“ ist tiefer als {maxDepth} Ebenen verschachtelt.");
+            var current = frontier;
+            var children = await db.Folders.Where(f => f.ParentId != null && current.Contains(f.ParentId.Value) && f.DeletedAt == null)
+                .Select(f => new { f.Id, ParentId = f.ParentId!.Value, f.Name }).ToListAsync(ct);
+            foreach (var child in children)
+                paths[child.Id] = paths[child.ParentId] + "/" + child.Name;
+            frontier = children.Select(c => c.Id).ToList();
+        }
+        var folderIds = paths.Keys.ToList();
+        var files = await db.Files.Where(f => folderIds.Contains(f.FolderId) && f.DeletedAt == null).ToListAsync(ct);
+        return (root.Name, files.OrderBy(f => paths[f.FolderId], StringComparer.Ordinal).ThenBy(f => f.Name, StringComparer.Ordinal)
+            .Select(f => (f, (string?)paths[f.FolderId])).ToList());
+    }
+
     /// <summary>Sperrt die Zustellung sofort (der Content-Endpunkt liefert nur aktive aus) und plant den Abbau im EDC.</summary>
     private void Revoke(DrivePrincipal principal, Delivery delivery)
     {
@@ -199,7 +243,7 @@ public sealed class ShareService(
         return shares.Select(s => new ShareSummary(
                 s.Id, s.Title, s.Message, s.CreatedBy, userNames.GetValueOrDefault(s.CreatedBy, ""), s.CreatedAt, s.ExpiresAt,
                 items.Where(i => i.ShareId == s.Id).OrderBy(i => i.ItemKey.Length).ThenBy(i => i.ItemKey)
-                    .Select(i => new ShareItemInfo(i.ItemKey, i.Name, i.SizeBytes, i.Sha256, i.FileEntryId)).ToList(),
+                    .Select(i => new ShareItemInfo(i.ItemKey, i.Name, i.SizeBytes, i.Sha256, i.FileEntryId, i.RelativePath)).ToList(),
                 deliveries.Where(d => d.ShareId == s.Id).OrderBy(d => partnerNames.GetValueOrDefault(d.PartnerId))
                     .Select(d => new DeliveryInfo(d.Id, d.PartnerId, partnerNames.GetValueOrDefault(d.PartnerId, d.RecipientBpn), d.RecipientBpn,
                         d.State, d.ExpiresAt, d.ActivatedAt, d.EndedAt, d.RetrievalCount, d.LastRetrievalAt, d.LastError))

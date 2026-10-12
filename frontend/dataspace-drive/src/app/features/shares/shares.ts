@@ -108,7 +108,13 @@ export class Shares {
   canRevoke = (d: DeliveryInfo): boolean => ['Active', 'Provisioning', 'ProvisioningFailed'].includes(d.state);
   canRevokeShare = (s: ShareSummary): boolean => s.deliveries.some(this.canRevoke);
 
-  formatFiles = (row: ShareSummary): string => row.items.map((i) => i.name).join(', ');
+  /** Ordnerfreigaben zeigen die geteilten Ordner, einzeln geteilte Dateien ihren Namen. */
+  formatFiles = (row: ShareSummary): string => {
+    const folders = [...new Set(row.items.filter((i) => i.relativePath).map((i) => i.relativePath!.split('/')[0]))];
+    const files = row.items.filter((i) => !i.relativePath).map((i) => i.name);
+    const folderText = folders.map((f) => `${f}/ (${row.items.filter((i) => i.relativePath?.split('/')[0] === f).length} Dateien)`);
+    return [...folderText, ...files].join(', ');
+  };
   formatSize = (row: ShareSummary): string => formatBytes(row.items.reduce((sum, i) => sum + i.size, 0));
   formatRecipients = (row: ShareSummary): string =>
     row.deliveries.map((d) => `${d.partnerName}: ${deliveryLabel(d.state)}`).join(' · ');

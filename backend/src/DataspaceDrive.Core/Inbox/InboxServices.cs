@@ -4,7 +4,7 @@ using DataspaceDrive.Core.Files;
 namespace DataspaceDrive.Core.Inbox;
 
 public sealed record IncomingItemInfo(string ItemKey, string Name, long Size, string Sha256, string ContentType, long ReceivedBytes,
-    Guid? FileEntryId, ScanStatus? ScanStatus);
+    Guid? FileEntryId, ScanStatus? ScanStatus, string? RelativePath);
 
 public sealed record IncomingOfferInfo(
     Guid Id,

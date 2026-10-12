@@ -6,8 +6,11 @@ using Swms.Edc.Client.Requests;
 
 namespace Swms.Edc.Client.Policies;
 
-/// <summary>Datei einer Zustellung, wie sie im Manifest des Assets steht.</summary>
-public sealed record ManifestItem(string Id, string Name, long Size, string Sha256, string ContentType);
+/// <summary>
+/// Datei einer Zustellung, wie sie im Manifest des Assets steht. <paramref name="Path"/> ist bei Ordnerfreigaben der
+/// relative Ordnerpfad („Begehung/Fotos“, Trenner „/“); Empfänger ohne Ordnerunterstützung legen die Datei flach ab.
+/// </summary>
+public sealed record ManifestItem(string Id, string Name, long Size, string Sha256, string ContentType, string? Path = null);
 
 public sealed record DeliveryAssetSpec(
     string DeliveryId,
@@ -53,6 +56,7 @@ public static class DriveExchange
     {
         // ASCII-escaped, damit Umlaute in Dateinamen jede Zwischenschicht unbeschadet überstehen.
         Encoder = JavaScriptEncoder.Default,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
     };
 
     public static string AssetId(string deliveryId) => $"drive-d-{deliveryId}";

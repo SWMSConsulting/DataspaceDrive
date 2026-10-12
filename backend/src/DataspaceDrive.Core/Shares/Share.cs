@@ -30,6 +30,9 @@ public sealed class ShareItem
     public required string Sha256 { get; set; }
     public required string ContentType { get; set; }
     public required string BlobKey { get; set; }
+
+    /// <summary>Relativer Ordnerpfad bei Ordnerfreigaben, z. B. „Begehung 2026/Fotos“; null bei einzeln geteilten Dateien.</summary>
+    public string? RelativePath { get; set; }
 }
 
 /// <summary>Zustellung an genau ein Partnerunternehmen, im EDC als Asset <c>drive-d-{id:N}</c> mit eigener Contract Definition.</summary>

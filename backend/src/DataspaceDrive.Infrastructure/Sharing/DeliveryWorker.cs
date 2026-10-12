@@ -142,7 +142,7 @@ public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clo
             delivery.ExternalId, sharing.InstanceId, share.Title, share.Message, delivery.RecipientBpn, participant.Bpn, participant.Organization,
             new DateTimeOffset(DateTime.SpecifyKind(delivery.ExpiresAt, DateTimeKind.Utc)),
             items.OrderBy(i => i.ItemKey.Length).ThenBy(i => i.ItemKey)
-                .Select(i => new ManifestItem(i.ItemKey, i.Name, i.SizeBytes, i.Sha256, i.ContentType)).ToList(),
+                .Select(i => new ManifestItem(i.ItemKey, i.Name, i.SizeBytes, i.Sha256, i.ContentType, i.RelativePath)).ToList(),
             sharing.ContentBaseUrl, tokens.Create(delivery.ExternalId))), ct);
         await edc.CreateContractDefinitionAsync(DriveExchange.DeliveryContractDefinition(delivery.ExternalId, delivery.RecipientBpn), ct);
 

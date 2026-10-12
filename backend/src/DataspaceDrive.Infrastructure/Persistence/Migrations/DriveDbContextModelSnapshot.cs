@@ -371,6 +371,10 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                     b.Property<long>("ReceivedBytes")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("RelativePath")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<string>("Sha256")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -771,6 +775,10 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
+
+                    b.Property<string>("RelativePath")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<string>("Sha256")
                         .IsRequired()

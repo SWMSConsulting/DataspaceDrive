@@ -162,6 +162,7 @@ public sealed class InboxPoller(
                 {
                     Id = Guid.NewGuid(), OfferId = incoming.Id, ItemKey = Limit(item.Id, 20), Name = SafeName(item.Name), SizeBytes = item.Size,
                     Sha256 = item.Sha256.ToLowerInvariant(), ContentType = Limit(string.IsNullOrWhiteSpace(item.ContentType) ? "application/octet-stream" : item.ContentType, 255),
+                    RelativePath = SafePath(item.Path),
                 });
             }
             db.AuditEvents.Add(new AuditEvent
@@ -185,6 +186,21 @@ public sealed class InboxPoller(
         if (safe.Length == 0)
             safe = "Datei";
         return safe.Length > 255 ? safe[..255] : safe;
+    }
+
+    /// <summary>Ordnerpfad vom Partner: Segmente bereinigen, „.“/„..“ und leere verwerfen, Tiefe begrenzen.</summary>
+    internal static string? SafePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+        var segments = path.Split('/', '\\')
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0 && s is not ("." or ".."))
+            .Take(10)
+            .Select(SafeName)
+            .ToList();
+        var joined = string.Join('/', segments);
+        return joined.Length == 0 ? null : joined.Length > 1000 ? joined[..1000] : joined;
     }
 
     private static string Limit(string value, int max) => value.Length > max ? value[..max] : value;

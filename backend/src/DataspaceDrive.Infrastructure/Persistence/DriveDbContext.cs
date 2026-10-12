@@ -151,6 +151,7 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
             e.Property(i => i.Sha256).HasMaxLength(64);
             e.Property(i => i.ContentType).HasMaxLength(255);
             e.Property(i => i.BlobKey).HasMaxLength(512);
+            e.Property(i => i.RelativePath).HasMaxLength(1000);
             e.HasIndex(i => new { i.ShareId, i.ItemKey }).IsUnique();
             e.HasIndex(i => i.FileVersionId);
             e.HasOne<Share>().WithMany().HasForeignKey(i => i.ShareId).OnDelete(DeleteBehavior.Cascade);
@@ -218,6 +219,7 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
             e.Property(i => i.Name).HasMaxLength(ItemName.MaxLength);
             e.Property(i => i.Sha256).HasMaxLength(64);
             e.Property(i => i.ContentType).HasMaxLength(255);
+            e.Property(i => i.RelativePath).HasMaxLength(1000);
             e.HasIndex(i => new { i.OfferId, i.ItemKey }).IsUnique();
             e.HasOne<IncomingOffer>().WithMany().HasForeignKey(i => i.OfferId).OnDelete(DeleteBehavior.Cascade);
         });

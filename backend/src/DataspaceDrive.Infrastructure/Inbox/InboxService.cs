@@ -129,7 +129,7 @@ public sealed class InboxService(DriveDbContext db, AccessResolver access, IServ
                 o.DecidedBy is { } u ? users.GetValueOrDefault(u) : null, o.DecidedAt, o.Error, o.CompletedAt,
                 items.Where(i => i.OfferId == o.Id).OrderBy(i => i.ItemKey.Length).ThenBy(i => i.ItemKey)
                     .Select(i => new IncomingItemInfo(i.ItemKey, i.Name, i.SizeBytes, i.Sha256, i.ContentType, i.ReceivedBytes, i.FileEntryId,
-                        i.FileVersionId is { } v && scans.TryGetValue(v, out var s) ? s : null))
+                        i.FileVersionId is { } v && scans.TryGetValue(v, out var s) ? s : null, i.RelativePath))
                     .ToList()))
             .ToList();
     }

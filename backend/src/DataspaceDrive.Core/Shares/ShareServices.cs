@@ -2,14 +2,16 @@ using DataspaceDrive.Core.Access;
 
 namespace DataspaceDrive.Core.Shares;
 
+/// <param name="FolderIds">Ordner werden mit allen Unterordnern und Dateien geteilt; der Empfänger erhält dieselbe Struktur.</param>
 public sealed record CreateShareRequest(
-    IReadOnlyList<Guid> FileIds,
+    IReadOnlyList<Guid>? FileIds,
     IReadOnlyList<Guid> PartnerIds,
     string? Title,
     string? Message,
-    DateTime? ExpiresAt);
+    DateTime? ExpiresAt,
+    IReadOnlyList<Guid>? FolderIds = null);
 
-public sealed record ShareItemInfo(string ItemKey, string Name, long Size, string Sha256, Guid FileEntryId);
+public sealed record ShareItemInfo(string ItemKey, string Name, long Size, string Sha256, Guid FileEntryId, string? RelativePath);
 
 public sealed record DeliveryInfo(
     Guid Id,

@@ -69,14 +69,14 @@ export class Files {
   /** Darf aus dem Bereich dieses Ordners an Partner freigegeben werden? */
   private readonly folderSharable = new Map<string, boolean>();
   private readonly sharableHere = signal(false);
-  private readonly filesSelected = signal(false);
+  private readonly itemsSelected = signal(false);
 
   readonly shareFiles = signal<ShareFile[] | null>(null);
   readonly canShare = computed(() => !!this.auth.me()?.canShareExternally && this.sharableHere());
 
   readonly toolbar = computed(() => {
     const items: (dxFileManagerToolbarItem | FileManagerPredefinedToolbarItem)[] = ['download', 'separator', 'move', 'rename', 'separator', 'delete'];
-    if (this.canShare() && this.filesSelected()) {
+    if (this.canShare() && this.itemsSelected()) {
       items.push({
         name: 'share',
         widget: 'dxButton',
@@ -165,7 +165,7 @@ export class Files {
 
   onSelectionChanged(e: SelectionChangedEvent): void {
     const items = e.selectedItems ?? [];
-    this.filesSelected.set(items.length > 0 && items.every((i) => !i.isDirectory));
+    this.itemsSelected.set(items.length > 0 && !items.some((i) => this.isSpace(i)));
   }
 
   onMenuItemClick(e: ContextMenuItemClickEvent): void {
@@ -175,13 +175,14 @@ export class Files {
   }
 
   private openShare(): void {
-    const selected = this.fileManager()?.instance.getSelectedItems() ?? [];
-    const files = selected.filter((i) => !i.isDirectory).map((i) => ({ id: this.itemId(i), name: i.name }));
-    if (files.length === 0 || files.length !== selected.length) {
-      notify('Bitte nur Dateien auswählen; Ordner lassen sich noch nicht freigeben.', 'warning', 3000);
+    const selected = (this.fileManager()?.instance.getSelectedItems() ?? []).filter((i) => !this.isSpace(i));
+    if (selected.length === 0) {
+      notify('Bitte Dateien oder Ordner auswählen.', 'warning', 3000);
       return;
     }
-    this.shareFiles.set(files);
+    this.shareFiles.set(
+      selected.map((i) => ({ id: i.isDirectory ? this.folderId(i) : this.itemId(i), name: i.name, isDirectory: i.isDirectory })),
+    );
   }
 
   download(item: DriveItem): void {

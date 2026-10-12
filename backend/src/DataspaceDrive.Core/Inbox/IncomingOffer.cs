@@ -47,6 +47,9 @@ public sealed class IncomingItem
     public required string Sha256 { get; set; }
     public required string ContentType { get; set; }
 
+    /// <summary>Relativer Ordnerpfad aus dem Manifest (bereinigt); die Ablage legt die Ordner unter dem Zielordner an.</summary>
+    public string? RelativePath { get; set; }
+
     /// <summary>Bereits empfangene Bytes; ein unterbrochener Abruf setzt hier fort.</summary>
     public long ReceivedBytes { get; set; }
 

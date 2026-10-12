@@ -50,6 +50,7 @@
     }
     <dx-data-grid [dataSource]="detail.data.items" keyExpr="itemKey" [showBorders]="true">
       <dxi-column dataField="name" caption="Datei"></dxi-column>
+      <dxi-column dataField="relativePath" caption="Ordner"></dxi-column>
       <dxi-column caption="Größe" [calculateCellValue]="formatSize2" [width]="100" alignment="right"></dxi-column>
       <dxi-column caption="Übertragen" [calculateCellValue]="formatItemProgress" [width]="100" alignment="right"></dxi-column>
       <dxi-column caption="Prüfung" [calculateCellValue]="formatItemScan" [width]="130"></dxi-column>
