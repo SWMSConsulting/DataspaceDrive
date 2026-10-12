@@ -38,10 +38,11 @@ public sealed class SharingOptions
     public int MaxItems { get; set; } = 200;
 
     /// <summary>
-    /// Vertragsprofil neuer Freigaben: „membership“ (Standard) oder „cx“. „cx“ setzt voraus, dass alle Partner ein
-    /// DataExchangeGovernance-Credential mit der vom Connector erwarteten Version haben.
+    /// Vertragsprofil neuer Freigaben: „open“ (Standard, ohne Nutzungsbedingungen; auch mit allgemeinen EDC-Werkzeugen
+    /// abrufbar), „membership“ oder „cx“. „cx“ setzt voraus, dass alle Partner ein DataExchangeGovernance-Credential mit
+    /// der vom Connector erwarteten Version haben.
     /// </summary>
-    public string ContractProfile { get; set; } = "membership";
+    public string ContractProfile { get; set; } = "open";
 
     /// <summary>Vier-Augen-Prinzip, solange die Verwaltung es nicht selbst eingestellt hat.</summary>
     public bool RequireApproval { get; set; }

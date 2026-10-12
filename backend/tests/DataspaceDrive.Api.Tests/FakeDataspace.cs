@@ -233,6 +233,12 @@ public sealed class FakeDataspace
         {
             consumer.Negotiations[negotiationId] = new Negotiation(negotiationId, "TERMINATED", null, null, "Contract offer not found or not accessible");
         }
+        else if (!SamePermissions(provider, cdId, request["policy"]!["permission"]))
+        {
+            // Wie der Empfänger-EDC (PolicyEquality): das Agreement trägt die Policy des Anbieters, die Anfrage muss ihr gleichen.
+            consumer.Negotiations[negotiationId] = new Negotiation(negotiationId, "TERMINATED", null, null,
+                "Policy in the contract agreement is not equal to the one in the contract offer");
+        }
         else
         {
             var agreementId = Next("agr");
@@ -242,6 +248,13 @@ public sealed class FakeDataspace
             consumer.Negotiations[negotiationId] = new Negotiation(negotiationId, "FINALIZED", Next("consumer-agr"), transferId, null);
         }
         return Json(HttpStatusCode.OK, new JsonObject { ["@id"] = negotiationId });
+    }
+
+    private static bool SamePermissions(Participant provider, string cdId, JsonNode? requested)
+    {
+        var contractPolicyId = provider.ContractDefinitionBodies[cdId]["contractPolicyId"]!.GetValue<string>();
+        var offered = provider.Policies.GetValueOrDefault(contractPolicyId)?["policy"]?["permission"];
+        return JsonNode.DeepEquals(offered ?? new JsonArray(), requested ?? new JsonArray());
     }
 
     private async Task<HttpResponseMessage> DataplaneAsync(Participant provider, HttpRequestMessage request, CancellationToken ct)

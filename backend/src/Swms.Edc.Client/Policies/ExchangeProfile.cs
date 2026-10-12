@@ -32,6 +32,13 @@ public static class ExchangeProfile
         }));
 
     /// <summary>
+    /// Berechtigungen der Contract-Policy (Profil "open"): keine. Den Empfänger legt allein die Access-Policy fest, die
+    /// der Anbieter beim Katalog und bei der Verhandlung prüft. Eine leere Policy übersteht den Umweg über den Katalog
+    /// unverändert; deshalb können auch allgemeine Werkzeuge wie EdcAdmin solche Zustellungen verhandeln.
+    /// </summary>
+    public static JsonArray OpenContractPermissions() => [];
+
+    /// <summary>
     /// Berechtigungen der Contract-Policy (Profil "membership"). Läuft durch die Policy-Validierung, weil die
     /// Action <c>access</c> ist; die BPN-Einschränkung steckt in der Access-Policy, die der Anbieter bei der
     /// Verhandlung erneut prüft.

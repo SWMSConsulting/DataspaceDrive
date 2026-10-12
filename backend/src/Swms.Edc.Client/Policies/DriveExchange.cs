@@ -59,19 +59,33 @@ public static class DriveExchange
     public const string AuthHeader = "X-Drive-Delivery-Token";
     public const string MembershipContractPolicyId = "drive-cp-membership-v1";
 
-    /// <summary>Vertragsprofile: „membership“ (Mitglied im Dataspace) oder „cx“ (FrameworkAgreement + UsagePurpose).</summary>
+    /// <summary>
+    /// Vertragsprofile: „open“ (ohne Nutzungsbedingungen, Standard), „membership“ (Mitglied im Dataspace) oder „cx“
+    /// (FrameworkAgreement + UsagePurpose). Auf den Empfänger beschränkt jede Zustellung ihre Access-Policy.
+    /// </summary>
+    public const string OpenProfile = "open";
+    public const string OpenContractPolicyId = "drive-cp-open-v1";
     public const string MembershipProfile = "membership";
     public const string CxProfile = "cx";
     public const string CxContractPolicyId = "drive-cp-cx-v1";
     public const string CxUsagePurpose = "windx.drive.fileExchange:1";
 
-    public static bool IsKnownProfile(string? profile) => profile is MembershipProfile or CxProfile;
+    public static bool IsKnownProfile(string? profile) => profile is OpenProfile or MembershipProfile or CxProfile;
 
-    public static string ContractPolicyId(string profile) => profile == CxProfile ? CxContractPolicyId : MembershipContractPolicyId;
+    public static string ContractPolicyId(string profile) => profile switch
+    {
+        OpenProfile => OpenContractPolicyId,
+        CxProfile => CxContractPolicyId,
+        _ => MembershipContractPolicyId,
+    };
 
     /// <summary>Berechtigungen der Contract-Policy des Profils; der Empfänger schickt sie beim Verhandeln genau so zurück.</summary>
-    public static JsonArray PermissionsFor(string profile) =>
-        profile == CxProfile ? ExchangeProfile.CxUsagePermissions(CxUsagePurpose) : ExchangeProfile.MembershipContractPermissions();
+    public static JsonArray PermissionsFor(string profile) => profile switch
+    {
+        OpenProfile => ExchangeProfile.OpenContractPermissions(),
+        CxProfile => ExchangeProfile.CxUsagePermissions(CxUsagePurpose),
+        _ => ExchangeProfile.MembershipContractPermissions(),
+    };
 
     private static readonly JsonSerializerOptions ManifestJson = new(JsonSerializerDefaults.Web)
     {

@@ -89,7 +89,10 @@ Der Token-Schlüssel muss stabil bleiben: Er steckt in den `authCode`s aller ver
 Im windx-Dataspace nutzen die Instanzen gemeinsame Demo-Dienste im Namespace `windx-shared`: einen Keycloak mit einem Realm je Unternehmen (`https://sso-windx.cluster.swms-cloud.com/realms/<teilnehmer>`) und einen ClamAV. `deploy/windx-shared/deploy.sh` legt sie an, erzeugt Zufalls-Passwörter und ergänzt in den Drive-Secrets `oidc-client-secret` und `postgres-password`. Die Demo-Zugangsdaten landen lokal in `deploy/windx-shared/zugangsdaten.local.md` (von Git ausgeschlossen). Beim Kunden zeigt `oidc.authority` auf dessen Identity Provider, und ClamAV läuft eingebettet (`clamav.enabled=true`) oder als vorhandener Dienst. ClamAV prüft höchstens 2 GiB - 1 Byte; mit Virenscan nimmt die Drive deshalb Dateien bis 2047 MiB an, denn ungeprüfte Dateien blieben gesperrt.
 
 Weitere Helm-Werte:
-- `sharing.contractProfile`: Vertragsprofil der Freigaben, `membership` (Standard) oder `cx`. `cx` setzt passende DataExchangeGovernance-Credentials bei allen Partnern voraus.
+- `sharing.contractProfile`: Vertragsprofil neuer Freigaben.
+  - `open` (Standard): Contract-Policy ohne Regeln; den Empfänger legt die Access-Policy fest. Freigaben mit einer Datei kann der Empfänger so auch mit EdcAdmin abrufen.
+  - `membership`: Regel „Membership = active“.
+  - `cx`: FrameworkAgreement und UsagePurpose. Setzt passende DataExchangeGovernance-Credentials bei allen Partnern voraus.
 - `sharing.requireApproval`: Anfangswert des Vier-Augen-Prinzips; die Verwaltung schaltet es in der Oberfläche um.
 - `mail.*`: SMTP für E-Mail-Hinweise. Ohne `mail.smtpHost` verschickt die Drive keine E-Mails; ein Passwort steht optional im Secret unter `smtp-password`. In der windx-Demo fängt ein Mailpit in `windx-shared` alle E-Mails ab (`kubectl -n windx-shared port-forward deploy/mailpit 8025:8025`, dann http://localhost:8025).
 

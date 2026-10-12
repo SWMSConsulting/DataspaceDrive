@@ -110,11 +110,15 @@ Das Austauschprofil ist der Vertrag zwischen zwei Drive-Instanzen. Beide Seiten 
 ### 6.2 Policies
 
 - **Access-Policy:** Action `cx-policy:access`, `Membership eq active` UND `BusinessPartnerNumber isAnyOf [BPN]`, mit vollen IRIs und dem Kontext `https://w3id.org/dspace/2025/1/odrl-profile.jsonld`. Der Anbieter prüft sie beim Katalog und erneut bei der Verhandlung (S2).
-- **Contract-Policy:** zwei feste Vertragsprofile.
-  - „membership“ (`drive-cp-membership-v1`, Standard): Action `cx-policy:access`, `Membership eq active`.
+- **Contract-Policy:** drei feste Vertragsprofile.
+  - „open“ (`drive-cp-open-v1`, Standard): ohne Regeln. Den Empfänger legt allein die Access-Policy fest.
+  - „membership“ (`drive-cp-membership-v1`): Action `cx-policy:access`, `Membership eq active`.
   - „cx“ (`drive-cp-cx-v1`): FrameworkAgreement `DataExchangeGovernance:1.0` und UsagePurpose `windx.drive.fileExchange:1`.
   - Die Instanz wählt das Profil (Helm-Wert `sharing.contractProfile`; die Verwaltung zeigt es an). Jede Freigabe schreibt ihr Profil ins Asset (`drive:contractProfile`). Der Empfänger verhandelt in genau dieser Form und übergeht Angebote mit unbekanntem Profil. Ohne Angabe gilt „membership“, damit Angebote älterer Instanzen weiter funktionieren.
-  - „cx“ setzt voraus, dass die DataExchangeGovernance-Credentials aller Teilnehmer die vom Connector erwartete Version tragen (Spike S1). Bis dahin bleibt „membership“ eingestellt.
+  - „cx“ setzt voraus, dass die DataExchangeGovernance-Credentials aller Teilnehmer die vom Connector erwartete Version tragen (Spike S1).
+  - **Warum „open“ der Standard ist:** Allgemeine EDC-Werkzeuge wie EdcAdmin schicken beim Verhandeln das Angebot aus dem Katalog zurück. Eine Contract-Policy mit Regeln kommt dort verkürzt an, und der Empfänger-EDC erkennt sie im Agreement nicht wieder (S5). Eine Policy ohne Regeln übersteht diesen Umweg unverändert.
+  - Mitgliedschaft und BPN prüft der Anbieter schon über die Access-Policy, beim Katalog und bei der Verhandlung (S2). Der Content-Endpunkt prüft bei jedem Abruf zusätzlich BPN und Agreement. Die Regel „Membership“ in der Contract-Policy brachte darüber hinaus wenig.
+  - Mit „open“ kann der Empfänger eine Freigabe mit genau einer Datei auch über EdcAdmin oder einen anderen EDC-Client abrufen. Ohne Datei-Schlüssel liefert der Content-Endpunkt nur bei genau einer Datei aus, mehrere Dateien gibt es nur über die Drive. Ein solcher Abruf umgeht beim Empfänger Prüfsumme, Virenscan und Ablage; der Anbieter protokolliert ihn wie jeden anderen.
 - **Contract Definition:** `assetsSelector` mit `edc:id = drive-d-{deliveryId}`. Ein leerer Selektor ist im Client ausgeschlossen.
 
 ### 6.3 Verhandlung beim Empfänger
@@ -253,7 +257,7 @@ Die Partnerliste der Verwaltung zeigt je Partner die letzte gesendete und die le
 | Vorschau | Bilder (PNG, JPEG, GIF, WebP), PDF und Text (bis 2 MiB) im Browser, nur für geprüfte Dateien. Antwort `inline` mit `nosniff`, `no-store` und einer CSP mit `sandbox` (bei PDF nur `frame-ancestors`, weil der PDF-Viewer des Browsers sonst nicht startet). SVG, HTML und Unbekanntes: 415. |
 | Hinweise | Zähler in der Navigation (neue Angebote, Eingang mit Handlungsbedarf, Freigaben zu prüfen, fehlgeschlagene Zustellungen). E-Mails über einen Ausgang in der Datenbank: neue Angebote an `drive-inbox`, Prüfanfragen an `drive-approver`, Entscheidung, erster Abruf und fehlgeschlagene Bereitstellung an die freigebende Person, Ergebnis der Übernahme an die annehmende Person. Abbestellen unter „Einstellungen“. Die windx-Demo fängt die E-Mails mit Mailpit ab. |
 | Benachrichtigung über den Dataspace | Eingangs-Asset je Drive; neue Angebote erscheinen in Sekunden statt nach dem nächsten Polling (Abschnitt 6.8) |
-| Vertragsprofile | „membership“ und „cx“, je Instanz gewählt, im Asset angegeben (Abschnitt 6.2) |
+| Vertragsprofile | „open“ (Standard), „membership“ und „cx“, je Instanz gewählt, im Asset angegeben (Abschnitt 6.2) |
 
 ## 11. Risiken
 
@@ -261,7 +265,7 @@ Die Partnerliste der Verwaltung zeigt je Partner die letzte gesendete und die le
 |---|---|
 | Offene Contract Definitions im Connector (leerer Selektor, im Spike beobachtet) heben den Katalogschutz auf | Prüfkette im Content-Endpunkt (BPN, Agreement); Reconciliation meldet offene Definitionen |
 | Policy-Gleichheit beim Verhandeln | Profil-Form statt kompakter Katalog-Offers (S5), Golden-Tests |
-| Version des DataExchangeGovernance-Credentials | Profil „membership“, bis alle Teilnehmer passende Credentials haben |
+| Version des DataExchangeGovernance-Credentials | Profil „open“ oder „membership“, bis alle Teilnehmer passende Credentials haben |
 | Dataplane-Warteschlange bei vielen parallelen Abrufen | Begrenzung beim Empfänger, segmentierter Abruf, weitere Dataplane-Repliken |
 | Laufender Download nach Widerruf | Segmente; Widerruf wirkt ab dem nächsten Segment |
 | 30 s Leerlauf-Timeout der Dataplane | Content-Endpunkt streamt direkt vom Blob |
@@ -309,7 +313,7 @@ Phase 3 (`e2e/phase3_acceptance.py`):
 | Content-Port 8081 | 8090 | Verwechslung mit der Dataplane (8081) vermeiden |
 | Zugriffsprüfung über Token und BPN | zusätzlich Agreement-Prüfung im eigenen EDC | Spike: eine Contract Definition mit leerem Selektor hebt den Katalogschutz auf |
 | Offer aus dem Katalog weiterreichen | Policy aus dem Austauschprofil, nur Offer-ID aus dem Katalog | Spike S5: kompakte Offers scheitern an der Policy-Gleichheit |
-| Contract-Policy CX (FrameworkAgreement + UsagePurpose) | Profil „membership“ als Standard | Spike S1 |
+| Contract-Policy CX (FrameworkAgreement + UsagePurpose) | Profil „open“ (ohne Regeln) als Standard; „membership“ und „cx“ wählbar | Spike S1; mit Regeln in der Contract-Policy können allgemeine EDC-Werkzeuge wie EdcAdmin nicht verhandeln (S5), die Beschränkung auf den Empfänger leistet die Access-Policy |
 | Download in einem Stück | segmentiert über `offset`/`length` | Spike S6/S7: fortsetzbar, Widerruf wirkt schneller |
 | BDRS-Import der Partner (offen) | Partner pflegt die Verwaltung mit BPN und DSP-Adresse; DID und Protokoll löst der eigene Connector auf (`dspversionparams`) | Der Connector fragt das BDRS selbst; die Drive braucht kein STS-Secret. Die DID-Dokumente im windx-Dataspace tragen keinen DataService-Eintrag, daher bleibt die DSP-Adresse eine Angabe der Verwaltung. |
 | Dateien bis 5 GB | mit Virenscan bis 2047 MiB | ClamAV prüft höchstens 2 GiB − 1 Byte; ungeprüfte Dateien bleiben gesperrt |
@@ -319,7 +323,7 @@ Phase 3 (`e2e/phase3_acceptance.py`):
 | Audit mit Hash-Kette | Audit nur anfügen, ohne Hash-Kette | folgt mit der Härtung (Phase 4) |
 | Freigabe aus jedem Bereich | aus Team-Bereichen nur, wenn die Verwaltung externes Teilen erlaubt; aus „Meine Dateien“ immer | Team-Inhalte gehören dem Team, nicht dem Einzelnen |
 | Eingangs-Asset mit `proxyMethod`/`proxyBody` (kleines JSON) | `GET` mit Query-Parametern (`event`, `asset`) über `proxyQueryParams` | Die Nachricht besteht nur aus einer Asset-ID; derselbe, im Spike geprüfte PULL-Weg wie bei den Zustellungen, ohne Request-Body durch die Dataplane |
-| Policy-Vorlagen | zwei feste Vertragsprofile („membership“, „cx“), je Instanz gewählt | Der Empfänger muss die Policy in genau der Form des Anbieters zurückschicken (S5); frei gestaltete Vorlagen müssten beide Seiten kennen |
+| Policy-Vorlagen | drei feste Vertragsprofile („open“, „membership“, „cx“), je Instanz gewählt | Der Empfänger muss die Policy in genau der Form des Anbieters zurückschicken (S5); frei gestaltete Vorlagen müssten beide Seiten kennen |
 | Vorschau für PDF und Bilder, optional Collabora/OnlyOffice | Bilder, PDF und Text im Browser; keine Office-Vorschau | keine Zusatzdienste; SVG und HTML bleiben ausgeschlossen, weil sie Skripte enthalten können |
 | optional Auto-Annahme | je Partner „aus“, „nur Aktualisierungen“ oder „alle“ in einen festen Ordner; Übernahme im Namen einer verantwortlichen Person | Rechte und Audit brauchen eine Person; Aktualisierungen bereits angenommener Freigaben sind der häufigste Fall |
 
@@ -336,6 +340,7 @@ Entschieden in Phase 2:
 
 Entschieden in Phase 3:
 - Das Vertragsprofil gilt je Instanz, nicht je Freigabe; Revisionen nehmen das zum Zeitpunkt gültige Profil.
+- Standard ist „open“: Freigaben mit einer Datei lassen sich so auch mit EdcAdmin abrufen. Bestehende Zustellungen behalten ihre Policy, denn Policies werden nicht geändert, sondern neu versioniert.
 - Die Benachrichtigung über den Dataspace ist Komfort; das Polling bleibt die Grundlage.
 - Das Vier-Augen-Prinzip schaltet die Verwaltung zur Laufzeit; der Helm-Wert gibt nur den Anfangswert vor.
 - Automatische Annahme ist standardmäßig aus; Prüfsumme und Virenscan laufen immer.

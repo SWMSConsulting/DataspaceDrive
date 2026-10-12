@@ -50,6 +50,38 @@ public class DriveExchangeTests
         Assert.Equal("drive-d-0f3c", selector["operandRight"]!.GetValue<string>());
     }
 
+    [Theory]
+    [InlineData(DriveExchange.OpenProfile, "drive-cp-open-v1", 0)]
+    [InlineData(DriveExchange.MembershipProfile, "drive-cp-membership-v1", 1)]
+    [InlineData(DriveExchange.CxProfile, "drive-cp-cx-v1", 1)]
+    public void Each_profile_has_its_own_contract_policy_and_the_receiver_repeats_it(string profile, string policyId, int permissions)
+    {
+        Assert.True(DriveExchange.IsKnownProfile(profile));
+        var policy = DriveExchange.ContractPolicy(profile);
+
+        Assert.Equal(policyId, policy["@id"]!.GetValue<string>());
+        Assert.Equal(permissions, policy["policy"]!["permission"]!.AsArray().Count);
+        Assert.True(JsonNode.DeepEquals(policy["policy"]!["permission"], DriveExchange.PermissionsFor(profile)));
+        Assert.Equal(policyId, DriveExchange.DeliveryContractDefinition("0f3c", "BPNL00000000WB02", profile)["contractPolicyId"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData(null, DriveExchange.MembershipProfile)]
+    [InlineData("open", DriveExchange.OpenProfile)]
+    [InlineData("cx", DriveExchange.CxProfile)]
+    public void Stated_contract_profile_is_read_from_the_dataset(string? stated, string expected)
+    {
+        var asset = DriveExchange.DeliveryAsset(Spec());
+        var dataset = new JsonObject { ["@id"] = asset["@id"]!.GetValue<string>(), ["odrl:hasPolicy"] = new JsonObject { ["@id"] = "offer" } };
+        foreach (var (key, value) in asset["properties"]!.AsObject())
+            if (key.StartsWith("drive:", StringComparison.Ordinal) && key != "drive:contractProfile")
+                dataset[DriveExchange.Namespace + key["drive:".Length..]] = value!.DeepClone();
+        if (stated is not null)
+            dataset[DriveExchange.Namespace + "contractProfile"] = stated;
+
+        Assert.Equal(expected, DriveExchange.ParseDataset(dataset)!.ContractProfile);
+    }
+
     [Fact]
     public void Catalog_dataset_parses_back_into_the_offer()
     {
@@ -86,6 +118,7 @@ public class DriveExchangeTests
     [InlineData("schemaVersion", "2")]
     [InlineData("manifest", "kein json")]
     [InlineData("manifest", "[]")]
+    [InlineData("contractProfile", "unbekannt")]
     public void Foreign_or_broken_datasets_are_ignored(string property, string value)
     {
         var dataset = new JsonObject

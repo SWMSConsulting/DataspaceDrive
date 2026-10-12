@@ -39,6 +39,18 @@ export class Admin {
   readonly edc = signal<EdcStatus | null>(null);
   readonly requireApproval = signal(false);
   readonly contractProfile = signal<string | null>(null);
+  readonly contractProfileLabel = computed(() => {
+    switch (this.contractProfile()) {
+      case 'cx':
+        return 'Catena-X (FrameworkAgreement + UsagePurpose)';
+      case 'membership':
+        return 'Mitgliedschaft im Dataspace';
+      case 'open':
+        return 'Ohne Nutzungsbedingungen (Zugriff nur für den Empfänger; einzelne Dateien auch mit EdcAdmin abrufbar)';
+      default:
+        return this.contractProfile() ?? '–';
+    }
+  });
   readonly checking = signal(false);
   readonly users = signal<KnownUser[]>([]);
 

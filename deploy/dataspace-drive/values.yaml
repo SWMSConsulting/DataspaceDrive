@@ -19,8 +19,10 @@ participant:
 sharing:
   defaultLifetimeDays: 30
   maxLifetimeDays: 90
-  # membership (Standard) oder cx (FrameworkAgreement + UsagePurpose; braucht passende DEG-Credentials bei allen Partnern)
-  contractProfile: membership
+  # Vertragsprofil neuer Freigaben. open (Standard): Contract-Policy ohne Regeln; den Empfänger legt die Access-Policy
+  # fest, und auch allgemeine EDC-Werkzeuge (z. B. EdcAdmin) können die Freigabe verhandeln. membership: Regel
+  # "Membership = active". cx: FrameworkAgreement + UsagePurpose; braucht passende DEG-Credentials bei allen Partnern.
+  contractProfile: open
   # Vorgabe für das Vier-Augen-Prinzip; die Verwaltung kann es in der Oberfläche umschalten.
   requireApproval: false
 

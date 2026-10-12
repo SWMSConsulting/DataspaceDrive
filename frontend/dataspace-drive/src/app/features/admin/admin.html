@@ -35,7 +35,7 @@
   (onValueChanged)="setRequireApproval($event.value)"
 ></dx-check-box>
 <p class="hint">
-  Vertragsprofil neuer Freigaben: <strong>{{ contractProfile() === 'cx' ? 'Catena-X (FrameworkAgreement + UsagePurpose)' : 'Mitgliedschaft im Dataspace' }}</strong>
+  Vertragsprofil neuer Freigaben: <strong>{{ contractProfileLabel() }}</strong>
   (Deployment-Einstellung sharing.contractProfile).
 </p>
 
