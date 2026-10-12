@@ -6,7 +6,7 @@ Dateien sicher über den Dataspace an andere Unternehmen freigeben: eine Web-Anw
 - Jede Freigabe wird ein EDC-Angebot, das nur der adressierte Partner sieht.
 - Der Partner übernimmt die Datei nach Annahme in seine eigene DataspaceDrive.
 
-**Stand:** Phase 1 („Drive intern“) ist abgenommen: OIDC-Anmeldung, persönliche und Team-Bereiche, Chunk-Upload, Versionen, Papierkorb, Suche und Virenscan, ausgerollt bei Alice und Bob im windx-Cluster. Die Abnahme vom 12.10.2026 mit [e2e/phase1_acceptance.py](e2e/README.md) umfasste parallele Sitzungen, eine 2-GB-Datei und einen Neustart ohne Datenverlust. Phase 2 (Teilen über den Dataspace) folgt. Details in [docs/konzept-dataspace-drive-de.md](docs/konzept-dataspace-drive-de.md) und [docs/spike-ergebnisse.md](docs/spike-ergebnisse.md).
+**Stand:** Phase 1 („Drive intern“) und Phase 2 („Teilen über den Dataspace“) sind umgesetzt und bei Alice und Bob im windx-Cluster ausgerollt. Nutzer geben Dateien an Partnerunternehmen frei; der Partner findet sie in seinem Eingang, nimmt sie an, und seine Drive holt sie über den Dataspace ab, prüft die Prüfsumme und den Virenscan und legt sie ab. Abnahmen: [e2e/README.md](e2e/README.md). Details in [docs/konzept-dataspace-drive-de.md](docs/konzept-dataspace-drive-de.md) und [docs/spike-ergebnisse.md](docs/spike-ergebnisse.md).
 
 ## Aufbau
 
@@ -29,7 +29,10 @@ Die Rollen kommen aus dem Identity Provider (Claim `roles`):
 
 - `drive-user`: Dateien ablegen. Jeder Nutzer hat einen persönlichen Bereich „Meine Dateien“, den nur er selbst sieht.
 - `drive-admin`: legt unter „Verwaltung“ Team-Bereiche an und vergibt Lesen oder Schreiben an Rollen, Gruppen oder einzelne Nutzer. Inhalte sieht ein Administrator nur mit eigenem Eintrag.
-- `drive-external-share` und `drive-inbox`: Teilen mit Partnern und Eingang (Phase 2).
+- `drive-external-share`: Dateien an Partnerunternehmen freigeben (aus Team-Bereichen nur, wenn die Verwaltung das erlaubt).
+- `drive-inbox`: Angebote der Partner im Eingang annehmen oder ablehnen.
+
+Partner pflegt die Verwaltung unter „Partner“ mit BPN und DSP-Adresse; die DID löst der eigene Connector auf. Die Seite „Verwaltung“ zeigt außerdem den Abgleich mit dem Connector (offene oder verwaiste Contract Definitions).
 
 ## Lokal entwickeln
 

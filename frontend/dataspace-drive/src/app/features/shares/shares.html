@@ -1,6 +1,11 @@
 <div class="page-header">
   <h1 class="page-title">Von mir geteilt</h1>
   <dx-button icon="refresh" stylingMode="text" hint="Neu laden" (onClick)="reload()"></dx-button>
+  <dx-check-box
+    [text]="'Beendete anzeigen' + (hiddenCount() ? ' (' + hiddenCount() + ')' : '')"
+    [value]="showEnded()"
+    (onValueChanged)="showEnded.set($event.value)"
+  ></dx-check-box>
   @if (auth.me()?.isAdmin) {
     <dx-check-box text="Alle Freigaben (Verwaltung)" [value]="showAll()" (onValueChanged)="toggleAll($event.value)"></dx-check-box>
   }
@@ -10,7 +15,7 @@
   im Connector zurück.
 </p>
 
-<dx-data-grid [dataSource]="shares()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" noDataText="Noch nichts geteilt.">
+<dx-data-grid [dataSource]="visibleShares()" keyExpr="id" [showBorders]="true" [wordWrapEnabled]="true" noDataText="Keine laufenden Freigaben.">
   <dxo-master-detail [enabled]="true" template="deliveries"></dxo-master-detail>
   <dxi-column dataField="title" caption="Titel" [width]="200"></dxi-column>
   <dxi-column caption="Dateien" [calculateCellValue]="formatFiles"></dxi-column>

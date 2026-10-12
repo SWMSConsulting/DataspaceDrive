@@ -42,6 +42,14 @@ export class Shares {
 
   readonly shares = signal<ShareSummary[]>([]);
   readonly showAll = signal(false);
+  readonly showEnded = signal(false);
+  /** Beendete Freigaben (alle Zustellungen widerrufen oder abgelaufen) nur auf Wunsch. */
+  readonly visibleShares = computed(() =>
+    this.showEnded()
+      ? this.shares()
+      : this.shares().filter((s) => s.deliveries.some((d) => !['Revoked', 'Expired', 'Rejected'].includes(d.state))),
+  );
+  readonly hiddenCount = computed(() => this.shares().length - this.visibleShares().length);
   readonly retrievals = signal<RetrievalInfo[] | null>(null);
   readonly retrievalsTitle = signal('');
   readonly busy = computed(() => this.shares().some((s) => s.deliveries.some((d) => deliveryInProgress(d.state))));

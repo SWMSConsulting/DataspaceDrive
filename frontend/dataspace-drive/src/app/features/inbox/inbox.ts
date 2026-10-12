@@ -1,5 +1,6 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { DxButtonModule } from 'devextreme-angular/ui/button';
+import { DxCheckBoxModule } from 'devextreme-angular/ui/check-box';
 import { DxDataGridModule } from 'devextreme-angular/ui/data-grid';
 import { DxPopupModule } from 'devextreme-angular/ui/popup';
 import { DxTreeViewModule } from 'devextreme-angular/ui/tree-view';
@@ -22,7 +23,7 @@ interface FolderNode {
 
 @Component({
   selector: 'app-inbox',
-  imports: [DxDataGridModule, DxButtonModule, DxPopupModule, DxTreeViewModule],
+  imports: [DxDataGridModule, DxButtonModule, DxCheckBoxModule, DxPopupModule, DxTreeViewModule],
   templateUrl: './inbox.html',
   styleUrl: './inbox.scss',
 })
@@ -32,6 +33,12 @@ export class Inbox {
   readonly auth = inject(AuthService);
 
   readonly offers = signal<IncomingOfferInfo[]>([]);
+  readonly showDone = signal(false);
+  /** Erledigtes (abgelegt, abgelehnt, zurückgezogen, abgelaufen) nur auf Wunsch; Quarantäne und Fehler bleiben sichtbar. */
+  readonly visibleOffers = computed(() =>
+    this.showDone() ? this.offers() : this.offers().filter((o) => !['Completed', 'Declined', 'Withdrawn', 'Expired'].includes(o.state)),
+  );
+  readonly hiddenCount = computed(() => this.offers().length - this.visibleOffers().length);
   readonly acceptOffer = signal<IncomingOfferInfo | null>(null);
   readonly target = signal<FolderNode | null>(null);
   readonly canDecide = computed(() => !!this.auth.me()?.canManageInbox);
