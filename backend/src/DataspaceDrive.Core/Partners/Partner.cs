@@ -42,6 +42,17 @@ public sealed class Partner
     /// <summary>In dessen Namen automatisch übernommene Dateien abgelegt werden (wer die Einstellung vorgenommen hat).</summary>
     public Guid? AutoAcceptUserId { get; set; }
 
+    /// <summary>Vertrag für das Eingangs-Asset des Partners (Benachrichtigung über den Dataspace).</summary>
+    public string? NotifyNegotiationId { get; set; }
+
+    public string? NotifyTransferProcessId { get; set; }
+    public string? NotifyAssetId { get; set; }
+    public DateTime? LastNotifiedAt { get; set; }
+    public string? NotifyError { get; set; }
+
+    /// <summary>Wann dieser Partner uns zuletzt benachrichtigt hat.</summary>
+    public DateTime? LastNotificationReceivedAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? LastPolledAt { get; set; }
     public string? LastPollError { get; set; }

@@ -42,6 +42,9 @@ export interface PartnerInfo {
   autoAcceptFolderId: string | null;
   autoAcceptFolderPath: string | null;
   autoAcceptUserName: string | null;
+  lastNotifiedAt: string | null;
+  notifyError: string | null;
+  lastNotificationReceivedAt: string | null;
 }
 
 export type AutoAcceptMode = 'Off' | 'UpdatesOnly' | 'All';

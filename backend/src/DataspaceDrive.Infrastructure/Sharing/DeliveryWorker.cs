@@ -18,8 +18,13 @@ namespace DataspaceDrive.Infrastructure.Sharing;
 public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clock, ILogger<DeliveryWorker> logger) : BackgroundService
 {
     private const int MaxProvisionAttempts = 8;
+    private const int MaxNotifyAttempts = 5;
     private static readonly TimeSpan IdleDelay = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan ErrorDelay = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan NotifyTimeout = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan InboxCheckInterval = TimeSpan.FromMinutes(1);
+
+    private DateTime _lastInboxCheck = DateTime.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -32,7 +37,14 @@ public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clo
             {
                 var worked = await ProcessNextAsync(stoppingToken);
                 if (!worked)
+                {
                     await ExpireDueAsync(stoppingToken);
+                    if (clock.GetUtcNow().UtcDateTime - _lastInboxCheck > InboxCheckInterval)
+                    {
+                        _lastInboxCheck = clock.GetUtcNow().UtcDateTime;
+                        await EnsureInboxAsync(stoppingToken);
+                    }
+                }
                 delay = worked ? TimeSpan.Zero : IdleDelay;
             }
             catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
@@ -67,8 +79,25 @@ public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clo
         var edc = scope.ServiceProvider.GetRequiredService<EdcConnection>().Client;
         try
         {
-            if (task.Kind == DeliveryTaskKind.Provision)
+            if (task.Kind == DeliveryTaskKind.Notify)
+            {
+                // Benachrichtigung ist Komfort: nach einer Weile still aufgeben, das Polling übernimmt.
+                var retryAt = now - task.CreatedAt > NotifyTimeout
+                    ? null
+                    : await PartnerNotifications.NotifyAsync(scope.ServiceProvider, db, edc, delivery, now, ct);
+                if (retryAt is { } at)
+                {
+                    task.NextAttemptAt = at;
+                    await db.SaveChangesAsync(ct);
+                    return true;
+                }
+            }
+            else if (task.Kind == DeliveryTaskKind.Provision)
+            {
                 await ProvisionAsync(scope.ServiceProvider, db, edc, delivery, now, ct);
+                if (delivery.State == DeliveryState.Active)
+                    db.DeliveryTasks.Add(new DeliveryTask { Kind = DeliveryTaskKind.Notify, DeliveryId = delivery.Id, CreatedAt = now, NextAttemptAt = now });
+            }
             else
                 await EndAsync(db, edc, delivery, now, ct);
             task.CompletedAt = now;
@@ -81,6 +110,8 @@ public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clo
             task.NextAttemptAt = now + Backoff(task.Attempts);
             logger.LogWarning("EDC-Auftrag {Kind} für Zustellung {DeliveryId} fehlgeschlagen (Versuch {Attempt}): {Error}",
                 task.Kind, delivery.Id, task.Attempts, ex.Message);
+            if (task.Kind == DeliveryTaskKind.Notify && task.Attempts >= MaxNotifyAttempts)
+                task.CompletedAt = now;
             // Abbau wird beliebig oft wiederholt, er muss irgendwann gelingen; die Anlage gibt nach einigen Versuchen auf.
             if (task.Kind == DeliveryTaskKind.Provision && task.Attempts >= MaxProvisionAttempts && delivery.State == DeliveryState.Provisioning)
             {
@@ -102,6 +133,23 @@ public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clo
             logger.LogInformation("Zustellung {DeliveryId} wurde während der Bearbeitung geändert; erneuter Durchlauf", delivery.Id);
         }
         return true;
+    }
+
+    /// <summary>Eigenes Eingangs-Asset mit der aktuellen Partnerliste abgleichen; true, wenn der Connector angepasst wurde.</summary>
+    internal async Task<bool> EnsureInboxAsync(CancellationToken ct)
+    {
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DriveDbContext>();
+        try
+        {
+            return await PartnerNotifications.EnsureInboxAsync(scope.ServiceProvider, db, scope.ServiceProvider.GetRequiredService<EdcConnection>().Client,
+                clock.GetUtcNow().UtcDateTime, ct);
+        }
+        catch (Exception ex) when (ex is EdcException or HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            logger.LogWarning("Eingangs-Asset konnte nicht angelegt werden: {Error}", ex.Message);
+            return false;
+        }
     }
 
     /// <summary>Aktive Zustellungen nach Ablauf abbauen; fehlgeschlagene, abgelaufene aufräumen.</summary>

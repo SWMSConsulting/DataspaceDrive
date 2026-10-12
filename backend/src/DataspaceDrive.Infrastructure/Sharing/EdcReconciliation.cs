@@ -110,6 +110,8 @@ public sealed class EdcReconciliation(IServiceScopeFactory scopes, TimeProvider 
             var id = JsonLd.Id(definition) ?? "?";
             var selector = JsonLd.Objects(JsonLd.Get(definition, "assetsSelector"));
             var accessPolicy = JsonLd.GetString(definition, "accessPolicyId");
+            if (id == DriveExchange.InboxContractDefinitionId)
+                continue;
             if (id.StartsWith("drive-cd-", StringComparison.Ordinal))
             {
                 driveDefinitions.Add(id);

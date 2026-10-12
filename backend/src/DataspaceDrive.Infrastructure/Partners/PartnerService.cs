@@ -192,7 +192,8 @@ public sealed partial class PartnerService(
         string? FolderPath(Guid? id) => folders.FirstOrDefault(f => f.Id == id) is { } f ? (f.ParentId is null ? f.Space : $"{f.Space} / … / {f.Name}") : null;
         return partners.Select(p => new PartnerInfo(p.Id, p.Bpn, p.Name, p.DspAddress, p.Did, p.Protocol, p.ResolvedAt, p.ResolveError,
                 p.SharingEnabled, p.ReceivingEnabled, p.Blocked, p.LastPolledAt, p.LastPollError, p.AutoAccept, p.AutoAcceptFolderId,
-                FolderPath(p.AutoAcceptFolderId), p.AutoAcceptUserId is { } u ? users.GetValueOrDefault(u) : null))
+                FolderPath(p.AutoAcceptFolderId), p.AutoAcceptUserId is { } u ? users.GetValueOrDefault(u) : null, p.LastNotifiedAt, p.NotifyError,
+                p.LastNotificationReceivedAt))
             .ToList();
     }
 

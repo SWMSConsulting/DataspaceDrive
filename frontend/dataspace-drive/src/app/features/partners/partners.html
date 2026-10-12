@@ -16,6 +16,7 @@
   <dxi-column caption="Status" [calculateCellValue]="formatStatus" [width]="120"></dxi-column>
   <dxi-column caption="Austausch" [calculateCellValue]="formatFlags" [width]="140"></dxi-column>
   <dxi-column caption="Automatisch annehmen" [calculateCellValue]="formatAutoAccept" [width]="180"></dxi-column>
+  <dxi-column caption="Benachrichtigung" [calculateCellValue]="formatNotify" [width]="220"></dxi-column>
   <dxi-column dataField="lastPolledAt" caption="Zuletzt abgefragt" dataType="datetime" [width]="150"></dxi-column>
   <dxi-column caption="Fehler" [calculateCellValue]="formatError"></dxi-column>
   <dxi-column caption="" [width]="260" cellTemplate="actions"></dxi-column>

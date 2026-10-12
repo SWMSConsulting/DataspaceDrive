@@ -73,6 +73,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<INotificationService, NotificationService>();
         services.AddHostedService<MailWorker>();
         services.AddScoped<IInboxService, InboxService>();
+        services.AddScoped<NotificationReceiver>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddSingleton<InboxPoller>();
         services.AddSingleton<IInboxRefresh>(sp => sp.GetRequiredService<InboxPoller>());

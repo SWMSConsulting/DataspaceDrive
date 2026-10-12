@@ -19,7 +19,10 @@ public sealed record PartnerInfo(
     AutoAcceptMode AutoAccept,
     Guid? AutoAcceptFolderId,
     string? AutoAcceptFolderPath,
-    string? AutoAcceptUserName);
+    string? AutoAcceptUserName,
+    DateTime? LastNotifiedAt,
+    string? NotifyError,
+    DateTime? LastNotificationReceivedAt);
 
 public sealed record PartnerRequest(string Bpn, string Name, string DspAddress, bool SharingEnabled = true, bool ReceivingEnabled = true,
     bool Blocked = false, AutoAcceptMode AutoAccept = AutoAcceptMode.Off, Guid? AutoAcceptFolderId = null);

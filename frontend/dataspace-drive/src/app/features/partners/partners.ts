@@ -144,6 +144,12 @@ export class Partners {
         ? 'Aktualisierungen'
         : 'aus';
 
+  /** Benachrichtigung über den Dataspace: gesendet (wir an den Partner) und empfangen (Partner an uns). */
+  formatNotify = (row: PartnerInfo): string => {
+    const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '–');
+    return `gesendet ${fmt(row.lastNotifiedAt)}, empfangen ${fmt(row.lastNotificationReceivedAt)}${row.notifyError ? ' · ' + row.notifyError : ''}`;
+  };
+
   onFolderSelected(folder: FolderNode | null): void {
     this.update('autoAcceptFolderId', folder?.id ?? null);
     this.draftFolderPath.set(folder?.path ?? null);

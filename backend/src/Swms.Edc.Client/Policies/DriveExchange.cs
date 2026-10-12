@@ -64,7 +64,57 @@ public static class DriveExchange
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
     };
 
+    /// <summary>Eingangs-Asset: Partner rufen es nach einer neuen Zustellung ab, damit der Eingang sofort nachsieht.</summary>
+    public const string InboxKind = "inbox";
+    public const string InboxAssetId = "drive-inbox-v1";
+    public const string InboxContractDefinitionId = "drive-cd-inbox-v1";
+    public const string InboxAccessPolicyId = "drive-ap-inbox-v1";
+    public const string InboxTokenSubject = "inbox";
+
     public static string AssetId(string deliveryId) => $"drive-d-{deliveryId}";
+
+    /// <summary>Eingangs-Asset: HttpData auf den Content-Endpunkt /edc/notifications, Query-Parameter werden durchgereicht.</summary>
+    public static JsonObject InboxAsset(string ownBpn, string contentBaseUrl, string authCode) => new()
+    {
+        ["@context"] = new JsonObject { ["@vocab"] = EdcNamespaces.Edc, ["dct"] = EdcNamespaces.Dct, ["drive"] = Namespace },
+        ["@type"] = "Asset",
+        ["@id"] = InboxAssetId,
+        ["properties"] = new JsonObject
+        {
+            ["name"] = "DataspaceDrive-Eingang",
+            ["dct:title"] = "DataspaceDrive-Eingang",
+            ["drive:kind"] = InboxKind,
+            ["drive:schemaVersion"] = SchemaVersion,
+            ["drive:ownerBpn"] = ownBpn,
+        },
+        ["dataAddress"] = new JsonObject
+        {
+            ["@type"] = "DataAddress",
+            ["type"] = "HttpData",
+            ["baseUrl"] = $"{contentBaseUrl.TrimEnd('/')}/edc/notifications",
+            ["proxyPath"] = "false",
+            ["proxyQueryParams"] = "true",
+            ["proxyMethod"] = "false",
+            ["proxyBody"] = "false",
+            ["authKey"] = AuthHeader,
+            ["authCode"] = authCode,
+        },
+    };
+
+    public static JsonObject InboxAccessPolicy(IEnumerable<string> bpns) => ExchangeProfile.AccessPolicy(InboxAccessPolicyId, bpns);
+
+    public static JsonObject InboxContractDefinition() =>
+        EdcRequests.ContractDefinition(InboxContractDefinitionId, InboxAccessPolicyId, MembershipContractPolicyId, InboxAssetId);
+
+    public static IReadOnlyList<Criterion> InboxAssetFilters() => [new Criterion(Namespace + "kind", "=", InboxKind)];
+
+    /// <summary>Eingangs-Asset eines Partners aus seinem Katalog: Asset- und Offer-ID.</summary>
+    public static (string AssetId, string OfferId)? ParseInboxDataset(JsonObject dataset)
+    {
+        var assetId = JsonLd.Id(dataset);
+        var offerId = JsonLd.Objects(JsonLd.Get(dataset, "hasPolicy")).Select(JsonLd.Id).FirstOrDefault(id => id is not null);
+        return assetId is null || offerId is null || Drive(dataset, "kind") != InboxKind ? null : (assetId, offerId);
+    }
     public static string ContractDefinitionId(string deliveryId) => $"drive-cd-{deliveryId}";
     public static string AccessPolicyId(string bpn) => $"drive-ap-{bpn}";
 

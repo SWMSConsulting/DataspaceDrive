@@ -65,10 +65,19 @@ public sealed class SharingApiFactory(FakeDataspace dataspace, FakeDataspace.Par
     public async Task RunDeliveryWorkerAsync()
     {
         var worker = ActivatorUtilities.CreateInstance<DeliveryWorker>(Services);
-        while (await worker.ProcessNextAsync(CancellationToken.None))
+        for (var round = 0; round < 50; round++)
         {
+            if (await worker.ProcessNextAsync(CancellationToken.None))
+                continue;
+            // Wartende Aufträge (z. B. laufende Verhandlung der Benachrichtigung): Uhr vorstellen.
+            using var scope = Services.CreateScope();
+            if (!await scope.ServiceProvider.GetRequiredService<DriveDbContext>().DeliveryTasks.AnyAsync(t => t.CompletedAt == null))
+                break;
+            Clock.Advance(TimeSpan.FromSeconds(5));
         }
     }
+
+    public Task<bool> EnsureInboxAsync() => ActivatorUtilities.CreateInstance<DeliveryWorker>(Services).EnsureInboxAsync(CancellationToken.None);
 
     /// <summary>Lässt den Eingang laufen, bis nichts mehr ansteht; die Uhr springt über Wartezeiten.</summary>
     public async Task RunInboxAsync()
@@ -767,6 +776,33 @@ public sealed class SharingFlowTests : IAsyncLifetime
         Assert.Contains("RCPT TO:<bob-user@example.org>", message);
         Assert.Contains("Alice AG", message);
         Assert.NotNull(Assert.Single(Mails(_bob)).SentAt);
+    }
+
+    [Fact]
+    public async Task New_delivery_notifies_the_partner_through_its_inbox_asset()
+    {
+        Assert.True(await _bob.EnsureInboxAsync());
+        Assert.False(await _bob.EnsureInboxAsync()); // unverändert: kein weiterer Aufruf beim Connector
+        Assert.Contains("drive-inbox-v1", _bobEdc.Assets.Keys);
+        Assert.Contains(AliceBpn, _bobEdc.Policies["drive-ap-inbox-v1"].ToJsonString());
+
+        await ShareFileAsync("Sofort.txt", 32);
+
+        var bobAdmin = await _bob.ClientForAsync("admin", DrivePrincipal.RoleUser, DrivePrincipal.RoleAdmin);
+        var alicePartner = (await ReadAsync(await bobAdmin.GetAsync("/api/admin/partners"))).EnumerateArray().Single();
+        Assert.NotEqual(JsonValueKind.Null, alicePartner.GetProperty("lastNotificationReceivedAt").ValueKind);
+        var aliceAdmin = await _alice.ClientForAsync("admin", DrivePrincipal.RoleUser, DrivePrincipal.RoleAdmin);
+        var bobPartner = (await ReadAsync(await aliceAdmin.GetAsync("/api/admin/partners"))).EnumerateArray().Single();
+        Assert.NotEqual(JsonValueKind.Null, bobPartner.GetProperty("lastNotifiedAt").ValueKind);
+        Assert.Equal(JsonValueKind.Null, bobPartner.GetProperty("notifyError").ValueKind);
+
+        // Gültiges Token, aber kein Partner: abgewiesen.
+        var token = _bobEdc.Assets["drive-inbox-v1"]["dataAddress"]!["authCode"]!.GetValue<string>();
+        var direct = _bob.CreateClient();
+        direct.DefaultRequestHeaders.Add("X-Test-Local-Port", DriveApiFactory.ContentPort.ToString());
+        direct.DefaultRequestHeaders.Add("X-Drive-Delivery-Token", token);
+        direct.DefaultRequestHeaders.Add("Edc-Bpn", "BPNL00000000WD04");
+        Assert.Equal(HttpStatusCode.Forbidden, (await direct.GetAsync("/edc/notifications?event=delivery")).StatusCode);
     }
 }
 

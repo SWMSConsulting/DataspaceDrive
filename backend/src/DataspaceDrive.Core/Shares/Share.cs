@@ -112,6 +112,9 @@ public enum DeliveryTaskKind
 
     /// <summary>Contract Definition löschen und Agreements zurückziehen (Widerruf oder Ablauf).</summary>
     End,
+
+    /// <summary>Den Empfänger über sein Eingangs-Asset benachrichtigen (Komfort; das Polling bleibt die Absicherung).</summary>
+    Notify,
 }
 
 /// <summary>Ausstehende EDC-Operation (Outbox); entsteht in derselben Transaktion wie die fachliche Änderung.</summary>

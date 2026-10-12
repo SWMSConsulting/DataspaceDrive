@@ -154,6 +154,10 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
             e.Property(p => p.ResolveError).HasMaxLength(1000);
             e.Property(p => p.LastPollError).HasMaxLength(1000);
             e.Property(p => p.AutoAccept).HasConversion<string>().HasMaxLength(20);
+            e.Property(p => p.NotifyNegotiationId).HasMaxLength(200);
+            e.Property(p => p.NotifyTransferProcessId).HasMaxLength(200);
+            e.Property(p => p.NotifyAssetId).HasMaxLength(200);
+            e.Property(p => p.NotifyError).HasMaxLength(1000);
             e.Ignore(p => p.IsResolved);
         });
 

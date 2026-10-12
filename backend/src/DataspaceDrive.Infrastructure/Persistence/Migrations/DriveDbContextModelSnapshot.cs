@@ -592,6 +592,12 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<DateTime?>("LastNotificationReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastNotifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("LastPollError")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -601,6 +607,22 @@ namespace DataspaceDrive.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NotifyAssetId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NotifyError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("NotifyNegotiationId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NotifyTransferProcessId")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 

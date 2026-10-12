@@ -143,6 +143,21 @@ public sealed class FakeDataspace
                     : new JsonArray());
             }
         }
+        if (method == HttpMethod.Put && segments is ["v3", "policydefinitions", var policyToUpdate])
+        {
+            if (!self.Policies.ContainsKey(policyToUpdate))
+                return Json(HttpStatusCode.NotFound, "[]");
+            self.Policies[policyToUpdate] = body!;
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+        if (method == HttpMethod.Put && path == "v3/assets")
+        {
+            var assetToUpdate = JsonLd.Id(body)!;
+            if (!self.Assets.ContainsKey(assetToUpdate))
+                return Json(HttpStatusCode.NotFound, "[]");
+            self.Assets[assetToUpdate] = body!;
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
         if (method == HttpMethod.Delete && segments is ["v3", "contractdefinitions", var cdId])
         {
             self.ContractDefinitionBodies.Remove(cdId);

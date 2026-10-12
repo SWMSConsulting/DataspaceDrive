@@ -1,6 +1,8 @@
 using System.Buffers;
 using DataspaceDrive.Core.Shares;
 using DataspaceDrive.Core.Storage;
+using DataspaceDrive.Infrastructure.Inbox;
+using Swms.Edc.Client.Policies;
 
 namespace DataspaceDrive.Api;
 
@@ -24,6 +26,18 @@ public static class ContentEndpoints
             ContentServices services, CancellationToken ct) => ServeAsync(deliveryId, null, offset, length, context, services, ct));
         endpoints.MapGet("/edc/deliveries/{deliveryId}/items/{itemId}", (string deliveryId, string itemId, long? offset, long? length,
             HttpContext context, ContentServices services, CancellationToken ct) => ServeAsync(deliveryId, itemId, offset, length, context, services, ct));
+        // Eingangs-Asset: ein Partner meldet eine neue Zustellung; das löst nur eine Katalogabfrage aus.
+        endpoints.MapGet("/edc/notifications", async (string? asset, HttpContext context, ContentServices services, NotificationReceiver receiver,
+            CancellationToken ct) =>
+        {
+            var headers = context.Request.Headers;
+            if (!services.Tokens.Verify(DriveExchange.InboxTokenSubject, headers[TokenHeader].ToString()))
+                return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "InvalidToken");
+            var consumerBpn = headers[ConsumerBpnHeader].ToString();
+            return consumerBpn.Length > 0 && await receiver.ReceivedAsync(consumerBpn, asset, ct)
+                ? Results.NoContent()
+                : Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "UnknownPartner");
+        });
         return endpoints;
     }
 

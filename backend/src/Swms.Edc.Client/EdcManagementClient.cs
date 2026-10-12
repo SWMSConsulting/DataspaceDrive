@@ -61,6 +61,19 @@ public sealed class EdcManagementClient(HttpClient http, EdcVersionProfile profi
     public Task<CreateOutcome> CreateContractDefinitionAsync(JsonObject definition, CancellationToken ct) =>
         CreateAsync("v3/contractdefinitions", definition, "Contract Definition anlegen", ct);
 
+    public async Task UpdatePolicyAsync(JsonObject definition, CancellationToken ct)
+    {
+        var id = JsonLd.Id(definition) ?? throw new ArgumentException("Policy ohne @id.", nameof(definition));
+        using var response = await http.PutAsJsonAsync($"v3/policydefinitions/{Uri.EscapeDataString(id)}", definition, ct);
+        await EnsureSuccessAsync(response, "Policy aktualisieren", ct);
+    }
+
+    public async Task UpdateAssetAsync(JsonObject asset, CancellationToken ct)
+    {
+        using var response = await http.PutAsJsonAsync("v3/assets", asset, ct);
+        await EnsureSuccessAsync(response, "Asset aktualisieren", ct);
+    }
+
     /// <summary>Alle Contract Definitions des Connectors, seitenweise gelesen.</summary>
     public async Task<IReadOnlyList<JsonObject>> QueryContractDefinitionsAsync(CancellationToken ct, int pageSize = 200, int maxPages = 50)
     {
