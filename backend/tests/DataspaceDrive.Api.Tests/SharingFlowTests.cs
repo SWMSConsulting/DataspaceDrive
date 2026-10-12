@@ -359,4 +359,34 @@ public sealed class SharingFlowTests : IAsyncLifetime
             (await inbox.PostAsJsonAsync($"/api/inbox/{offerId}/accept", new { folderId = await RootFolderAsync(plain) })).StatusCode);
         Assert.Equal("Declined", (await ReadAsync(await inbox.PostAsync($"/api/inbox/{offerId}/decline", null))).GetProperty("state").GetString());
     }
+
+    [Fact]
+    public async Task Receiver_quarantines_a_delivery_its_virus_scanner_flags()
+    {
+        // Absender ohne Virenscan (Alice), Empfänger mit Scanner (Bob): Bobs Prüfung muss greifen.
+        _bob.Scanner.Enabled = true;
+        var client = await AliceSharerAsync();
+        var file = await UploadAsync(client, await RootFolderAsync(client), "rechnung.txt", "X5O!P%@AP EICAR test"u8.ToArray());
+        var partnerId = (await ReadAsync(await client.GetAsync("/api/partners/targets"))).EnumerateArray().Single().GetProperty("id").GetGuid();
+        await ReadAsync(await client.PostAsJsonAsync("/api/shares", new { fileIds = new[] { file.GetProperty("id").GetGuid() }, partnerIds = new[] { partnerId } }));
+        await _alice.RunDeliveryWorkerAsync();
+        await _bob.PollAsync();
+        var bob = await BobInboxAsync();
+        var offerId = (await ReadAsync(await bob.GetAsync("/api/inbox"))).EnumerateArray().Single().GetProperty("id").GetGuid();
+        await ReadAsync(await bob.PostAsJsonAsync($"/api/inbox/{offerId}/accept", new { folderId = await RootFolderAsync(bob) }));
+
+        await _bob.RunInboxAsync();
+        Assert.Equal("Scanning", (await ReadAsync(await bob.GetAsync("/api/inbox"))).EnumerateArray().Single().GetProperty("state").GetString());
+        var scanner = ActivatorUtilities.CreateInstance<DataspaceDrive.Infrastructure.Scanning.ScanWorker>(_bob.Services);
+        while (await scanner.ScanNextAsync(CancellationToken.None))
+        {
+        }
+        await _bob.RunInboxAsync();
+
+        var offer = (await ReadAsync(await bob.GetAsync("/api/inbox"))).EnumerateArray().Single();
+        Assert.Equal("Quarantined", offer.GetProperty("state").GetString());
+        Assert.Equal("Infected", offer.GetProperty("items")[0].GetProperty("scanStatus").GetString());
+        var stored = offer.GetProperty("items")[0].GetProperty("fileEntryId").GetGuid();
+        Assert.Equal(HttpStatusCode.Forbidden, (await bob.GetAsync($"/api/files/{stored}/content")).StatusCode);
+    }
 }
