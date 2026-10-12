@@ -1,0 +1,55 @@
+# Läufer für die Abnahme im Cluster (windx-Demo): lädt große Dateien über den Ingress, ohne die eigene
+# Internetanbindung zu belasten. Zugangsdaten kommen aus windx-shared-secrets (deploy/windx-shared/deploy.sh).
+# Teilnehmer anpassen: DRIVE_URL, DRIVE_USER, DRIVE_ADMIN und die Secret-Schlüssel.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: drive-acceptance
+  namespace: windx-shared
+  labels:
+    app.kubernetes.io/name: drive-acceptance
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: runner
+      image: python:3.13-slim
+      command: ["sh", "-c", "pip install --quiet --user --no-warn-script-location requests && sleep 7200"]
+      env:
+        - name: HOME
+          value: /tmp
+        - name: DRIVE_URL
+          value: https://drive-alice-windx.cluster.swms-cloud.com
+        - name: DRIVE_USER
+          value: alice.nutzer
+        - name: DRIVE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: windx-shared-secrets
+              key: alice-user-password
+        - name: DRIVE_ADMIN
+          value: alice.admin
+        - name: DRIVE_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: windx-shared-secrets
+              key: alice-admin-password
+      # Bereit erst nach der Installation von requests.
+      readinessProbe:
+        exec:
+          command: ["python3", "-c", "import requests"]
+        periodSeconds: 3
+      resources:
+        requests:
+          cpu: 200m
+          memory: 128Mi
+        limits:
+          memory: 512Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
