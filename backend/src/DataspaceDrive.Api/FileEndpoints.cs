@@ -1,6 +1,7 @@
 using DataspaceDrive.Api.Auth;
 using DataspaceDrive.Core.Access;
 using DataspaceDrive.Core.Files;
+using DataspaceDrive.Core.Settings;
 using DataspaceDrive.Core.Storage;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -20,7 +21,7 @@ public sealed record StartUploadRequest(Guid FolderId, string FileName, long Siz
 public sealed record CompleteUploadRequest(string? ContentType);
 
 public sealed record MeResponse(Guid Id, string Name, string? Email, IReadOnlyCollection<string> Roles, bool CanShareExternally,
-    bool CanManageInbox, bool IsAdmin);
+    bool CanManageInbox, bool IsAdmin, bool CanApprove, bool SharingRequiresApproval);
 
 public static class FileEndpoints
 {
@@ -45,13 +46,13 @@ public static class FileEndpoints
     {
         var api = endpoints.MapGroup("/api").RequireAuthorization(AuthSetup.UserPolicy);
 
-        api.MapGet("/me", async (CurrentUser current, CancellationToken ct) =>
+        api.MapGet("/me", async (CurrentUser current, IInstanceSettings settings, CancellationToken ct) =>
         {
             var user = await current.UserAsync(ct);
             var principal = await current.PrincipalAsync(ct);
             return new MeResponse(user.Id, user.DisplayName, user.Email, principal.Roles,
                 principal.Roles.Contains(DrivePrincipal.RoleExternalShare), principal.Roles.Contains(DrivePrincipal.RoleInbox),
-                principal.IsAdmin);
+                principal.IsAdmin, principal.Roles.Contains(DrivePrincipal.RoleApprover), (await settings.SharingAsync(ct)).RequireApproval);
         });
 
         api.MapGet("/spaces", async (CurrentUser current, IFileService files, CancellationToken ct) =>

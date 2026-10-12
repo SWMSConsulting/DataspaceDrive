@@ -23,6 +23,9 @@
     @if (cell.data.hasNewerVersions && canUpdate(cell.data)) {
       <div class="newer">neuere Version vorhanden</div>
     }
+    @if (approvalText(cell.data); as approval) {
+      <div class="approval" [class.rejected]="cell.data.approval === 'Rejected'">{{ approval }}</div>
+    }
   </div>
   <dxi-column caption="Dateien" [calculateCellValue]="formatFiles"></dxi-column>
   <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="100" alignment="right"></dxi-column>

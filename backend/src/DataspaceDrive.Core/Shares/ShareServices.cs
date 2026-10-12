@@ -39,7 +39,12 @@ public sealed record ShareSummary(
     IReadOnlyList<DeliveryInfo> Deliveries,
     Guid LineageId,
     int Revision,
-    bool HasNewerVersions);
+    bool HasNewerVersions,
+    ShareApproval Approval,
+    string? DecidedByName,
+    string? DecisionNote);
+
+public sealed record RejectShareRequest(string? Reason);
 
 /// <summary>Aktualisieren: Nachricht und Ablauf optional, sonst wie bisher.</summary>
 public sealed record UpdateShareRequest(string? Message, DateTime? ExpiresAt);
@@ -69,4 +74,14 @@ public interface IShareService
     /// bisherige Freigabe ab.
     /// </summary>
     Task<ShareSummary> UpdateAsync(DrivePrincipal principal, Guid shareId, UpdateShareRequest request, CancellationToken ct);
+
+    /// <summary>Freigaben anderer, die auf Prüfung warten (Rolle drive-approver).</summary>
+    Task<IReadOnlyList<ShareSummary>> PendingApprovalsAsync(DrivePrincipal approver, CancellationToken ct);
+
+    Task<ShareSummary> ApproveAsync(DrivePrincipal approver, Guid shareId, CancellationToken ct);
+
+    Task<ShareSummary> RejectAsync(DrivePrincipal approver, Guid shareId, string? reason, CancellationToken ct);
+
+    /// <summary>Inhalt einer zur Prüfung stehenden Datei (Schnappschuss-Version), damit Prüfer wissen, was sie freigeben.</summary>
+    Task<Files.FileContent> ApprovalContentAsync(DrivePrincipal approver, Guid shareId, string itemKey, CancellationToken ct);
 }

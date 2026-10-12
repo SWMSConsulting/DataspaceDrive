@@ -110,6 +110,14 @@ export class Shares {
   canUpdate = (s: ShareSummary): boolean =>
     s.deliveries.some(this.canRevoke) && !this.shares().some((o) => o.lineageId === s.lineageId && o.revision > s.revision);
   formatTitle = (row: ShareSummary): string => (row.revision > 1 ? `${row.title} (Revision ${row.revision})` : row.title);
+  approvalText = (row: ShareSummary): string | null =>
+    row.approval === 'Pending'
+      ? 'wartet auf Prüfung'
+      : row.approval === 'Rejected'
+        ? `abgelehnt${row.decidedByName ? ' von ' + row.decidedByName : ''}${row.decisionNote ? ': ' + row.decisionNote : ''}`
+        : row.approval === 'Approved' && row.decidedByName
+          ? `geprüft von ${row.decidedByName}`
+          : null;
 
   async updateShare(share: ShareSummary): Promise<void> {
     const ok = await confirm(

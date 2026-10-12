@@ -553,4 +553,91 @@ public sealed class SharingFlowTests : IAsyncLifetime
             .EnumerateArray().Select(i => i.GetProperty("name").GetString()).Order().ToList();
         Assert.Equal(["Alt.txt", "Neu.txt"], names);
     }
+
+    private async Task<HttpClient> EnableApprovalAsync()
+    {
+        var admin = await _alice.ClientForAsync("admin", DrivePrincipal.RoleUser, DrivePrincipal.RoleAdmin);
+        await ReadAsync(await admin.PutAsJsonAsync("/api/admin/settings/sharing", new { requireApproval = true }));
+        return await _alice.ClientForAsync("alice-approver", DrivePrincipal.RoleUser, DrivePrincipal.RoleApprover);
+    }
+
+    private async Task<JsonElement> RequestShareAsync(HttpClient sharer, string name, byte[] content)
+    {
+        var file = await UploadAsync(sharer, await RootFolderAsync(sharer), name, content);
+        var partnerId = (await ReadAsync(await sharer.GetAsync("/api/partners/targets"))).EnumerateArray().Single().GetProperty("id").GetGuid();
+        return await ReadAsync(await sharer.PostAsJsonAsync("/api/shares", new { fileIds = new[] { file.GetProperty("id").GetGuid() }, partnerIds = new[] { partnerId } }));
+    }
+
+    [Fact]
+    public async Task Four_eyes_approval_gates_provisioning()
+    {
+        var approver = await EnableApprovalAsync();
+        var sharer = await AliceSharerAsync();
+        Assert.True((await ReadAsync(await sharer.GetAsync("/api/me"))).GetProperty("sharingRequiresApproval").GetBoolean());
+        var share = await RequestShareAsync(sharer, "Angebot.pdf", "vertraulich"u8.ToArray());
+        var shareId = share.GetProperty("id").GetGuid();
+        Assert.Equal("Pending", share.GetProperty("approval").GetString());
+        Assert.Equal("Requested", share.GetProperty("deliveries")[0].GetProperty("state").GetString());
+        await _alice.RunDeliveryWorkerAsync();
+        Assert.Empty(_aliceEdc.Assets);
+
+        // Sharer ohne Prüferrolle und Prüfer mit eigener Freigabe dürfen nicht freigeben.
+        Assert.Equal(HttpStatusCode.Forbidden, (await sharer.PostAsync($"/api/approvals/{shareId}/approve", null)).StatusCode);
+        var both = await _alice.ClientForAsync("alice-both", DrivePrincipal.RoleUser, DrivePrincipal.RoleExternalShare, DrivePrincipal.RoleApprover);
+        var own = await RequestShareAsync(both, "Eigen.txt", "x"u8.ToArray());
+        Assert.Equal(HttpStatusCode.Forbidden, (await both.PostAsync($"/api/approvals/{own.GetProperty("id").GetGuid()}/approve", null)).StatusCode);
+        Assert.DoesNotContain((await ReadAsync(await both.GetAsync("/api/approvals"))).EnumerateArray(),
+            s => s.GetProperty("id").GetGuid() == own.GetProperty("id").GetGuid());
+
+        var pending = await ReadAsync(await approver.GetAsync("/api/approvals"));
+        Assert.Contains(pending.EnumerateArray(), s => s.GetProperty("id").GetGuid() == shareId);
+        Assert.Equal("vertraulich", await (await approver.GetAsync($"/api/approvals/{shareId}/items/1/content")).Content.ReadAsStringAsync());
+
+        var approved = await ReadAsync(await approver.PostAsync($"/api/approvals/{shareId}/approve", null));
+        Assert.Equal("Approved", approved.GetProperty("approval").GetString());
+        Assert.Equal("alice-approver", approved.GetProperty("decidedByName").GetString());
+        await _alice.RunDeliveryWorkerAsync();
+        Assert.Single(_aliceEdc.Assets);
+        Assert.Equal(1, await _bob.PollAsync());
+
+        // Ablehnen beendet die wartenden Zustellungen, im Connector entsteht nichts.
+        var rejected = await RequestShareAsync(sharer, "Entwurf.pdf", "entwurf"u8.ToArray());
+        var result = await ReadAsync(await approver.PostAsJsonAsync($"/api/approvals/{rejected.GetProperty("id").GetGuid()}/reject",
+            new { reason = "Noch nicht abgestimmt" }));
+        Assert.Equal(("Rejected", "Noch nicht abgestimmt", "Rejected"), (result.GetProperty("approval").GetString(),
+            result.GetProperty("decisionNote").GetString(), result.GetProperty("deliveries")[0].GetProperty("state").GetString()));
+        await _alice.RunDeliveryWorkerAsync();
+        Assert.Single(_aliceEdc.Assets);
+
+        // Zurückziehen durch den Absender.
+        var withdrawn = await RequestShareAsync(sharer, "Zurück.txt", "z"u8.ToArray());
+        var after = await ReadAsync(await sharer.PostAsync($"/api/shares/{withdrawn.GetProperty("id").GetGuid()}/revoke", null));
+        Assert.Equal("Rejected", after.GetProperty("approval").GetString());
+        Assert.DoesNotContain((await ReadAsync(await approver.GetAsync("/api/approvals"))).EnumerateArray(),
+            s => s.GetProperty("id").GetGuid() == withdrawn.GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task Revision_under_approval_keeps_the_old_one_running_until_approved()
+    {
+        var approver = await EnableApprovalAsync();
+        var sharer = await AliceSharerAsync();
+        var first = await RequestShareAsync(sharer, "Plan.pdf", "v1"u8.ToArray());
+        await ReadAsync(await approver.PostAsync($"/api/approvals/{first.GetProperty("id").GetGuid()}/approve", null));
+        await _alice.RunDeliveryWorkerAsync();
+        var root = await RootFolderAsync(sharer);
+        await UploadAsync(sharer, root, "Plan.pdf", "v2"u8.ToArray());
+
+        var second = await ReadAsync(await sharer.PostAsJsonAsync($"/api/shares/{first.GetProperty("id").GetGuid()}/update", new { }));
+        Assert.Equal("Pending", second.GetProperty("approval").GetString());
+        await _alice.RunDeliveryWorkerAsync();
+        var shares = (await ReadAsync(await sharer.GetAsync("/api/shares"))).EnumerateArray().ToList();
+        Assert.Equal("Active", shares.Single(s => s.GetProperty("revision").GetInt32() == 1).GetProperty("deliveries")[0].GetProperty("state").GetString());
+
+        await ReadAsync(await approver.PostAsync($"/api/approvals/{second.GetProperty("id").GetGuid()}/approve", null));
+        await _alice.RunDeliveryWorkerAsync();
+        shares = (await ReadAsync(await sharer.GetAsync("/api/shares"))).EnumerateArray().ToList();
+        Assert.Equal("Revoked", shares.Single(s => s.GetProperty("revision").GetInt32() == 1).GetProperty("deliveries")[0].GetProperty("state").GetString());
+        Assert.Equal("Active", shares.Single(s => s.GetProperty("revision").GetInt32() == 2).GetProperty("deliveries")[0].GetProperty("state").GetString());
+    }
 }

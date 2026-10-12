@@ -6,6 +6,7 @@ import { DxTextAreaModule } from 'devextreme-angular/ui/text-area';
 import { DxTextBoxModule } from 'devextreme-angular/ui/text-box';
 import notify from 'devextreme/ui/notify';
 
+import { AuthService } from '../../../core/auth.service';
 import { errorText } from '../../../core/drive-api.service';
 import { ShareTarget, SharingApiService } from '../../../core/sharing-api.service';
 
@@ -27,6 +28,7 @@ const day = 24 * 60 * 60 * 1000;
 })
 export class ShareDialog {
   private readonly api = inject(SharingApiService);
+  readonly auth = inject(AuthService);
 
   /** Zu teilende Dateien; null schließt den Dialog. */
   readonly files = input<ShareFile[] | null>(null);
@@ -106,7 +108,13 @@ export class ShareDialog {
         expiresAt: expires.toISOString(),
       });
       const names = share.deliveries.map((d) => d.partnerName).join(', ');
-      notify(`„${share.title}“ wird für ${names} bereitgestellt.`, 'success', 4000);
+      notify(
+        share.approval === 'Pending'
+          ? `„${share.title}“ wartet auf Prüfung durch eine zweite Person.`
+          : `„${share.title}“ wird für ${names} bereitgestellt.`,
+        'success',
+        4000,
+      );
       this.close(true);
     } catch (error) {
       notify(errorText(error), 'error', 5000);

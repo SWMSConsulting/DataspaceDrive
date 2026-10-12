@@ -27,6 +27,15 @@
 </dx-data-grid>
 
 <div class="section-header edc-header">
+  <h2 class="section-title">Freigaben</h2>
+</div>
+<dx-check-box
+  text="Vier-Augen-Prinzip: Freigaben an Partner werden erst nach Prüfung durch eine zweite Person (Rolle drive-approver) bereitgestellt"
+  [value]="requireApproval()"
+  (onValueChanged)="setRequireApproval($event.value)"
+></dx-check-box>
+
+<div class="section-header edc-header">
   <h2 class="section-title">Connector-Abgleich</h2>
   <dx-button text="Jetzt prüfen" icon="refresh" [disabled]="checking()" (onClick)="checkEdc()"></dx-button>
 </div>

@@ -10,6 +10,9 @@ public sealed record DrivePrincipal(Guid UserId, IReadOnlySet<string> Roles, IRe
     public const string RoleInbox = "drive-inbox";
     public const string RoleAdmin = "drive-admin";
 
+    /// <summary>Prüft Freigaben anderer, wenn das Vier-Augen-Prinzip eingeschaltet ist.</summary>
+    public const string RoleApprover = "drive-approver";
+
     public bool IsAdmin => Roles.Contains(RoleAdmin);
 }
 

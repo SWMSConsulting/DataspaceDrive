@@ -21,6 +21,7 @@ const allNavItems: NavItem[] = [
   { text: 'Papierkorb', icon: 'trash', path: '/trash' },
   { text: 'Von mir geteilt', icon: 'share', path: '/shares', visible: (me) => me.canShareExternally || me.isAdmin },
   { text: 'Eingang', icon: 'download', path: '/inbox', visible: (me) => me.canManageInbox || me.isAdmin },
+  { text: 'Freigaben prüfen', icon: 'check', path: '/approvals', visible: (me) => me.canApprove },
   { text: 'Partner', icon: 'group', path: '/partners', visible: (me) => me.isAdmin },
   { text: 'Aktivität', icon: 'clock', path: '/activity', visible: (me) => me.isAdmin },
   { text: 'Verwaltung', icon: 'preferences', path: '/admin', visible: (me) => me.isAdmin },

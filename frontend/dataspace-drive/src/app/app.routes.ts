@@ -16,6 +16,7 @@ export const routes: Routes = [
       { path: 'trash', loadComponent: () => import('./features/trash/trash').then((m) => m.Trash) },
       { path: 'shares', loadComponent: () => import('./features/shares/shares').then((m) => m.Shares) },
       { path: 'inbox', loadComponent: () => import('./features/inbox/inbox').then((m) => m.Inbox) },
+      { path: 'approvals', loadComponent: () => import('./features/approvals/approvals').then((m) => m.Approvals) },
       { path: 'partners', canActivate: [adminGuard], loadComponent: () => import('./features/partners/partners').then((m) => m.Partners) },
       { path: 'activity', canActivate: [adminGuard], loadComponent: () => import('./features/activity/activity').then((m) => m.Activity) },
       { path: 'admin', canActivate: [adminGuard], loadComponent: () => import('./features/admin/admin').then((m) => m.Admin) },

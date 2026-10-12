@@ -3,6 +3,7 @@ using DataspaceDrive.Core.Access;
 using DataspaceDrive.Core.Audit;
 using DataspaceDrive.Core.Files;
 using DataspaceDrive.Core.Partners;
+using DataspaceDrive.Core.Settings;
 using DataspaceDrive.Core.Shares;
 using DataspaceDrive.Infrastructure.Files;
 using DataspaceDrive.Infrastructure.Persistence;
@@ -14,6 +15,7 @@ namespace DataspaceDrive.Infrastructure.Sharing;
 public sealed class ShareService(
     DriveDbContext db,
     AccessResolver access,
+    IInstanceSettings settings,
     IOptions<SharingOptions> options,
     TimeProvider clock) : IShareService
 {
@@ -58,7 +60,9 @@ public sealed class ShareService(
         RequireSharer(principal);
         var previous = await db.Shares.FirstOrDefaultAsync(s => s.Id == shareId, ct) ?? throw new NotFoundException("Die Freigabe wurde nicht gefunden.");
         RequireOwner(principal, previous);
-        if (await db.Shares.AnyAsync(s => s.SupersedesShareId == previous.Id, ct))
+        if (previous.Approval == ShareApproval.Pending)
+            throw new ConflictException("Diese Freigabe wartet noch auf Prüfung.");
+        if (await db.Shares.AnyAsync(s => s.SupersedesShareId == previous.Id && s.Approval != ShareApproval.Rejected, ct))
             throw new ConflictException("Es gibt bereits eine neuere Revision dieser Freigabe.");
         var current = await db.Deliveries.Where(d => d.ShareId == previous.Id
             && (d.State == DeliveryState.Active || d.State == DeliveryState.Provisioning || d.State == DeliveryState.ProvisioningFailed)).ToListAsync(ct);
@@ -83,8 +87,10 @@ public sealed class ShareService(
 
         var share = await CreateRevisionAsync(principal, fileIds, folderIds, partners, previous.Title, request.Message ?? previous.Message, expiresAt,
             previous, ct);
-        foreach (var delivery in current)
-            Revoke(principal, delivery, $"ersetzt durch Revision {share.Revision}");
+        // Mit Vier-Augen-Prinzip läuft die bisherige Revision weiter, bis die neue freigegeben ist.
+        if (share.Approval == ShareApproval.NotRequired)
+            foreach (var delivery in current)
+                Revoke(principal, delivery, $"ersetzt durch Revision {share.Revision}");
         await db.SaveChangesAsync(ct);
         return (await SummariesAsync([share], ct))[0];
     }
@@ -138,9 +144,11 @@ public sealed class ShareService(
             throw new InvalidInputException($"Die Nachricht darf höchstens {MaxMessageLength} Zeichen lang sein.");
 
         var id = Guid.NewGuid();
+        var requireApproval = (await settings.SharingAsync(ct)).RequireApproval;
         var share = new Share
         {
             Id = id, Title = title, Message = message, CreatedBy = principal.UserId, CreatedAt = now, ExpiresAt = expiresAt,
+            Approval = requireApproval ? ShareApproval.Pending : ShareApproval.NotRequired,
             LineageId = previous?.LineageId ?? id, Revision = (previous?.Revision ?? 0) + 1, SupersedesShareId = previous?.Id,
             SourceFileIds = fileIds.Count == 0 ? null : string.Join(',', fileIds),
             SourceFolderIds = folderIds.Count == 0 ? null : string.Join(',', folderIds),
@@ -162,16 +170,117 @@ public sealed class ShareService(
         {
             var delivery = new Delivery
             {
-                Id = Guid.NewGuid(), ShareId = share.Id, PartnerId = partner.Id, RecipientBpn = partner.Bpn, State = DeliveryState.Provisioning,
-                ExpiresAt = expiresAt, CreatedAt = now,
+                Id = Guid.NewGuid(), ShareId = share.Id, PartnerId = partner.Id, RecipientBpn = partner.Bpn,
+                State = requireApproval ? DeliveryState.Requested : DeliveryState.Provisioning, ExpiresAt = expiresAt, CreatedAt = now,
             };
             db.Deliveries.Add(delivery);
-            db.DeliveryTasks.Add(new DeliveryTask { Kind = DeliveryTaskKind.Provision, DeliveryId = delivery.Id, CreatedAt = now, NextAttemptAt = now });
+            if (!requireApproval)
+                db.DeliveryTasks.Add(new DeliveryTask { Kind = DeliveryTaskKind.Provision, DeliveryId = delivery.Id, CreatedAt = now, NextAttemptAt = now });
         }
         Audit(principal, previous is null ? "share.created" : "share.updated", "share", share.Id,
             $"{title} (Revision {share.Revision}): {entries.Count} Datei(en){(folderNames.Count > 0 ? " aus " + string.Join(", ", folderNames) : "")} an "
-            + $"{string.Join(", ", partners.Select(p => p.Bpn))}, Ablauf {expiresAt:O}");
+            + $"{string.Join(", ", partners.Select(p => p.Bpn))}, Ablauf {expiresAt:O}{(requireApproval ? ", wartet auf Prüfung" : "")}");
         return share;
+    }
+
+    public async Task<IReadOnlyList<ShareSummary>> PendingApprovalsAsync(DrivePrincipal approver, CancellationToken ct)
+    {
+        RequireApprover(approver);
+        var shares = await db.Shares.Where(s => s.Approval == ShareApproval.Pending && s.CreatedBy != approver.UserId)
+            .OrderBy(s => s.CreatedAt).Take(500).ToListAsync(ct);
+        return await SummariesAsync(shares, ct);
+    }
+
+    public async Task<ShareSummary> ApproveAsync(DrivePrincipal approver, Guid shareId, CancellationToken ct)
+    {
+        var share = await PendingForApproverAsync(approver, shareId, ct);
+        var now = Now;
+        if (share.ExpiresAt <= now)
+            throw new ConflictException("Die Freigabe ist inzwischen abgelaufen.");
+        var deliveries = await db.Deliveries.Where(d => d.ShareId == share.Id && d.State == DeliveryState.Requested).ToListAsync(ct);
+        var partnerIds = deliveries.Select(d => d.PartnerId).ToList();
+        var partners = await db.Partners.Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
+        foreach (var delivery in deliveries)
+        {
+            var partner = partners[delivery.PartnerId];
+            if (partner.Blocked || !partner.SharingEnabled)
+            {
+                delivery.State = DeliveryLifecycle.Transitions.Move(delivery.State, DeliveryState.Rejected);
+                delivery.EndedAt = now;
+                delivery.LastError = "Partner inzwischen gesperrt";
+            }
+            else
+            {
+                delivery.State = DeliveryLifecycle.Transitions.Move(delivery.State, DeliveryState.Provisioning);
+                db.DeliveryTasks.Add(new DeliveryTask { Kind = DeliveryTaskKind.Provision, DeliveryId = delivery.Id, CreatedAt = now, NextAttemptAt = now });
+            }
+            delivery.ConcurrencyStamp = Guid.NewGuid();
+        }
+        share.Approval = ShareApproval.Approved;
+        share.DecidedBy = approver.UserId;
+        share.DecidedAt = now;
+        // Eine freigegebene Revision löst die vorige ab.
+        if (share.SupersedesShareId is { } previousId)
+            foreach (var old in await db.Deliveries.Where(d => d.ShareId == previousId).ToListAsync(ct))
+                Revoke(approver, old, $"ersetzt durch Revision {share.Revision}");
+        Audit(approver, "share.approved", "share", share.Id, share.Title);
+        await db.SaveChangesAsync(ct);
+        return (await SummariesAsync([share], ct))[0];
+    }
+
+    public async Task<ShareSummary> RejectAsync(DrivePrincipal approver, Guid shareId, string? reason, CancellationToken ct)
+    {
+        var share = await PendingForApproverAsync(approver, shareId, ct);
+        var note = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        if (note?.Length > 1000)
+            throw new InvalidInputException("Die Begründung darf höchstens 1000 Zeichen lang sein.");
+        await EndRequestedAsync(share, "abgelehnt", ct);
+        share.Approval = ShareApproval.Rejected;
+        share.DecidedBy = approver.UserId;
+        share.DecidedAt = Now;
+        share.DecisionNote = note;
+        Audit(approver, "share.rejected", "share", share.Id, note is null ? share.Title : $"{share.Title}: {note}");
+        await db.SaveChangesAsync(ct);
+        return (await SummariesAsync([share], ct))[0];
+    }
+
+    public async Task<FileContent> ApprovalContentAsync(DrivePrincipal approver, Guid shareId, string itemKey, CancellationToken ct)
+    {
+        var share = await PendingForApproverAsync(approver, shareId, ct);
+        var item = await db.ShareItems.FirstOrDefaultAsync(i => i.ShareId == share.Id && i.ItemKey == itemKey && i.FileVersionId != null, ct)
+            ?? throw new NotFoundException("Die Datei wurde nicht gefunden.");
+        Audit(approver, "share.file-reviewed", "share", share.Id, item.Name);
+        await db.SaveChangesAsync(ct);
+        return new FileContent(item.Name, item.ContentType, item.SizeBytes, item.BlobKey);
+    }
+
+    private async Task<Share> PendingForApproverAsync(DrivePrincipal approver, Guid shareId, CancellationToken ct)
+    {
+        RequireApprover(approver);
+        var share = await db.Shares.FirstOrDefaultAsync(s => s.Id == shareId, ct) ?? throw new NotFoundException("Die Freigabe wurde nicht gefunden.");
+        if (share.CreatedBy == approver.UserId)
+            throw new AccessDeniedException("Eigene Freigaben prüft eine zweite Person.");
+        if (share.Approval != ShareApproval.Pending)
+            throw new ConflictException("Die Freigabe wartet nicht auf Prüfung.");
+        return share;
+    }
+
+    /// <summary>Wartende Zustellungen beenden: es gibt noch nichts im Connector abzubauen.</summary>
+    private async Task EndRequestedAsync(Share share, string reason, CancellationToken ct)
+    {
+        foreach (var delivery in await db.Deliveries.Where(d => d.ShareId == share.Id && d.State == DeliveryState.Requested).ToListAsync(ct))
+        {
+            delivery.State = DeliveryLifecycle.Transitions.Move(delivery.State, DeliveryState.Rejected);
+            delivery.EndedAt = Now;
+            delivery.LastError = reason;
+            delivery.ConcurrencyStamp = Guid.NewGuid();
+        }
+    }
+
+    private static void RequireApprover(DrivePrincipal principal)
+    {
+        if (!principal.Roles.Contains(DrivePrincipal.RoleApprover))
+            throw new AccessDeniedException("Freigaben prüfen darf nur, wer die Rolle drive-approver hat.");
     }
 
     private static void RequireSharer(DrivePrincipal principal)
@@ -206,6 +315,14 @@ public sealed class ShareService(
     {
         var (delivery, share) = await OwnDeliveryAsync(principal, deliveryId, ct);
         Revoke(principal, delivery);
+        // Letzte wartende Zustellung zurückgezogen: die Prüfung entfällt.
+        if (share.Approval == ShareApproval.Pending
+            && !await db.Deliveries.AnyAsync(d => d.ShareId == share.Id && d.Id != delivery.Id && d.State == DeliveryState.Requested, ct))
+        {
+            share.Approval = ShareApproval.Rejected;
+            share.DecisionNote = "vom Absender zurückgezogen";
+            share.DecidedAt = Now;
+        }
         await db.SaveChangesAsync(ct);
         return (await SummariesAsync([share], ct))[0].Deliveries.Single(d => d.Id == delivery.Id);
     }
@@ -216,6 +333,12 @@ public sealed class ShareService(
         RequireOwner(principal, share);
         foreach (var delivery in await db.Deliveries.Where(d => d.ShareId == share.Id).ToListAsync(ct))
             Revoke(principal, delivery);
+        if (share.Approval == ShareApproval.Pending)
+        {
+            share.Approval = ShareApproval.Rejected;
+            share.DecisionNote = "vom Absender zurückgezogen";
+            share.DecidedAt = Now;
+        }
         await db.SaveChangesAsync(ct);
         return (await SummariesAsync([share], ct))[0];
     }
@@ -269,6 +392,16 @@ public sealed class ShareService(
     /// <summary>Sperrt die Zustellung sofort (der Content-Endpunkt liefert nur aktive aus) und plant den Abbau im EDC.</summary>
     private void Revoke(DrivePrincipal principal, Delivery delivery, string? reason = null)
     {
+        if (delivery.State == DeliveryState.Requested)
+        {
+            // Noch nicht freigegeben: zurückziehen, im Connector gibt es nichts abzubauen.
+            delivery.State = DeliveryLifecycle.Transitions.Move(delivery.State, DeliveryState.Rejected);
+            delivery.EndedAt = Now;
+            delivery.LastError = "vom Absender zurückgezogen";
+            delivery.ConcurrencyStamp = Guid.NewGuid();
+            Audit(principal, "delivery.withdrawn", "delivery", delivery.Id, delivery.RecipientBpn);
+            return;
+        }
         if (delivery.State is not (DeliveryState.Active or DeliveryState.Provisioning or DeliveryState.ProvisioningFailed))
             return; // bereits widerrufen, abgelaufen oder im Abbau
         delivery.State = DeliveryLifecycle.Transitions.Move(delivery.State, DeliveryState.Revoking);
@@ -301,7 +434,7 @@ public sealed class ShareService(
         var deliveries = await db.Deliveries.Where(d => ids.Contains(d.ShareId)).ToListAsync(ct);
         var partnerIds = deliveries.Select(d => d.PartnerId).Distinct().ToList();
         var partnerNames = await db.Partners.Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, ct);
-        var userIds = shares.Select(s => s.CreatedBy).Distinct().ToList();
+        var userIds = shares.Select(s => s.CreatedBy).Concat(shares.Where(s => s.DecidedBy != null).Select(s => s.DecidedBy!.Value)).Distinct().ToList();
         var userNames = await db.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
         var fileIds = items.Select(i => i.FileEntryId).Distinct().ToList();
         var currentVersions = await db.Files.Where(f => fileIds.Contains(f.Id) && f.DeletedAt == null)
@@ -315,7 +448,8 @@ public sealed class ShareService(
                         d.State, d.ExpiresAt, d.ActivatedAt, d.EndedAt, d.RetrievalCount, d.LastRetrievalAt, d.LastError))
                     .ToList(),
                 s.LineageId, s.Revision,
-                items.Any(i => i.ShareId == s.Id && currentVersions.TryGetValue(i.FileEntryId, out var v) && v != i.FileVersionId)))
+                items.Any(i => i.ShareId == s.Id && currentVersions.TryGetValue(i.FileEntryId, out var v) && v != i.FileVersionId),
+                s.Approval, s.DecidedBy is { } decider ? userNames.GetValueOrDefault(decider) : null, s.DecisionNote))
             .ToList();
     }
 

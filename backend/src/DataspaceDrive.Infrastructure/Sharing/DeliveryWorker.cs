@@ -120,9 +120,25 @@ public sealed class DeliveryWorker(IServiceScopeFactory scopes, TimeProvider clo
             db.DeliveryTasks.Add(new DeliveryTask { Kind = DeliveryTaskKind.End, DeliveryId = delivery.Id, CreatedAt = now, NextAttemptAt = now });
             Audit(db, now, "delivery.expiring", delivery, null);
         }
-        if (due.Count > 0)
+        // Ohne Prüfung abgelaufen: beenden, im Connector gibt es nichts abzubauen.
+        var unreviewed = await db.Deliveries.Where(d => d.ExpiresAt <= now && d.State == DeliveryState.Requested).ToListAsync(ct);
+        foreach (var delivery in unreviewed)
+        {
+            delivery.State = DeliveryLifecycle.Transitions.Move(delivery.State, DeliveryState.Rejected);
+            delivery.EndedAt = now;
+            delivery.LastError = "abgelaufen ohne Prüfung";
+            delivery.ConcurrencyStamp = Guid.NewGuid();
+        }
+        var shareIds = unreviewed.Select(d => d.ShareId).Distinct().ToList();
+        foreach (var share in await db.Shares.Where(s => shareIds.Contains(s.Id) && s.Approval == ShareApproval.Pending).ToListAsync(ct))
+        {
+            share.Approval = ShareApproval.Rejected;
+            share.DecisionNote = "abgelaufen ohne Prüfung";
+            share.DecidedAt = now;
+        }
+        if (due.Count + unreviewed.Count > 0)
             await db.SaveChangesAsync(ct);
-        return due.Count;
+        return due.Count + unreviewed.Count;
     }
 
     private static async Task ProvisionAsync(IServiceProvider services, DriveDbContext db, EdcManagementClient edc, Delivery delivery, DateTime now,

@@ -71,6 +71,51 @@ if grep -q '^configmap/clamav configured' <<<"$applied"; then
   echo "   ClamAV-Konfiguration geändert, clamd startet neu"
 fi
 
+echo "== Rollen der Vorlage in laufenden Realms nachziehen"
+# --import-realm legt Realms nur beim ersten Start an; neue Rollen und Zuordnungen kommen hier dazu (nichts wird entfernt).
+if kubectl -n "$NS" rollout status deployment/keycloak --timeout=600s >/dev/null 2>&1; then
+  KC_ADMIN_PASSWORD="$(secret_value "$NS" windx-shared-secrets keycloak-admin-password)" \
+  python3 - "$HERE/realm-template.json" $PARTICIPANTS <<'EOF2'
+import json, os, sys, urllib.parse, urllib.request
+base = "https://sso-windx.cluster.swms-cloud.com"
+def call(method, path, token=None, body=None, form=None):
+    data = urllib.parse.urlencode(form).encode() if form else (json.dumps(body).encode() if body is not None else None)
+    req = urllib.request.Request(base + path, data=data, method=method)
+    if token: req.add_header("Authorization", "Bearer " + token)
+    if body is not None: req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            text = r.read().decode()
+            return r.status, json.loads(text) if text else None
+    except urllib.error.HTTPError as e:
+        return e.code, None
+_, tok = call("POST", "/realms/master/protocol/openid-connect/token",
+              form={"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": os.environ["KC_ADMIN_PASSWORD"]})
+token = tok["access_token"]
+template = json.load(open(sys.argv[1], encoding="utf-8"))
+for realm in sys.argv[2:]:
+    for role in template["roles"]["realm"]:
+        if call("GET", f"/admin/realms/{realm}/roles/{role['name']}", token)[0] == 404:
+            call("POST", f"/admin/realms/{realm}/roles", token, {"name": role["name"], "description": role.get("description", "")})
+            print(f"   {realm}: Rolle {role['name']} angelegt")
+    for user in template["users"]:
+        name = user["username"].replace("__REALM__", realm)
+        status, found = call("GET", f"/admin/realms/{realm}/users?username={urllib.parse.quote(name)}&exact=true", token)
+        if status != 200 or not found:
+            continue
+        uid = found[0]["id"]
+        _, mapped = call("GET", f"/admin/realms/{realm}/users/{uid}/role-mappings/realm", token)
+        have = {r["name"] for r in mapped or []}
+        missing = []
+        for role_name in user.get("realmRoles", []):
+            if role_name not in have:
+                missing.append(call("GET", f"/admin/realms/{realm}/roles/{role_name}", token)[1])
+        if missing:
+            call("POST", f"/admin/realms/{realm}/users/{uid}/role-mappings/realm", token, missing)
+            print(f"   {realm}: {name} erhält {', '.join(r['name'] for r in missing)}")
+EOF2
+fi
+
 echo "== Drive-Secrets der Teilnehmer ergänzen"
 for p in $PARTICIPANTS; do
   ns="windx-$p"; name="dataspace-drive-$p-secrets"

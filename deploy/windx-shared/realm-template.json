@@ -8,14 +8,33 @@
   "loginWithEmailAllowed": true,
   "bruteForceProtected": true,
   "internationalizationEnabled": true,
-  "supportedLocales": ["de", "en"],
+  "supportedLocales": [
+    "de",
+    "en"
+  ],
   "defaultLocale": "de",
   "roles": {
     "realm": [
-      { "name": "drive-user", "description": "Darf die DataspaceDrive nutzen" },
-      { "name": "drive-external-share", "description": "Darf Dateien an andere Unternehmen freigeben" },
-      { "name": "drive-inbox", "description": "Darf eingehende Angebote annehmen oder ablehnen" },
-      { "name": "drive-admin", "description": "Verwaltet die DataspaceDrive" }
+      {
+        "name": "drive-user",
+        "description": "Darf die DataspaceDrive nutzen"
+      },
+      {
+        "name": "drive-external-share",
+        "description": "Darf Dateien an andere Unternehmen freigeben"
+      },
+      {
+        "name": "drive-inbox",
+        "description": "Darf eingehende Angebote annehmen oder ablehnen"
+      },
+      {
+        "name": "drive-admin",
+        "description": "Verwaltet die DataspaceDrive"
+      },
+      {
+        "name": "drive-approver",
+        "description": "Prüft Freigaben anderer an Partnerunternehmen (Vier-Augen-Prinzip)"
+      }
     ]
   },
   "clients": [
@@ -31,8 +50,12 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["https://__DRIVE_HOST__/signin-oidc"],
-      "webOrigins": ["https://__DRIVE_HOST__"],
+      "redirectUris": [
+        "https://__DRIVE_HOST__/signin-oidc"
+      ],
+      "webOrigins": [
+        "https://__DRIVE_HOST__"
+      ],
       "attributes": {
         "post.logout.redirect.uris": "https://__DRIVE_HOST__/signout-callback-oidc",
         "pkce.code.challenge.method": "S256"
@@ -62,8 +85,18 @@
       "lastName": "__DISPLAY__",
       "email": "nutzer@__REALM__.windx.example",
       "emailVerified": true,
-      "credentials": [{ "type": "password", "value": "__USER_PASSWORD__", "temporary": false }],
-      "realmRoles": ["drive-user", "drive-external-share", "drive-inbox"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "__USER_PASSWORD__",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "drive-user",
+        "drive-external-share",
+        "drive-inbox"
+      ]
     },
     {
       "username": "__REALM__.admin",
@@ -72,8 +105,18 @@
       "lastName": "__DISPLAY__",
       "email": "admin@__REALM__.windx.example",
       "emailVerified": true,
-      "credentials": [{ "type": "password", "value": "__ADMIN_PASSWORD__", "temporary": false }],
-      "realmRoles": ["drive-user", "drive-admin"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "__ADMIN_PASSWORD__",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "drive-user",
+        "drive-admin",
+        "drive-approver"
+      ]
     }
   ]
 }

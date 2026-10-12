@@ -127,6 +127,14 @@ export class AdminApiService {
     return firstValueFrom(this.http.post<PartnerInfo>(`/api/admin/partners/${id}/resolve`, {}));
   }
 
+  sharingSettings(): Promise<{ requireApproval: boolean }> {
+    return firstValueFrom(this.http.get<{ requireApproval: boolean }>('/api/admin/settings/sharing'));
+  }
+
+  updateSharingSettings(requireApproval: boolean): Promise<{ requireApproval: boolean }> {
+    return firstValueFrom(this.http.put<{ requireApproval: boolean }>('/api/admin/settings/sharing', { requireApproval }));
+  }
+
   edcStatus(): Promise<EdcStatus> {
     return firstValueFrom(this.http.get<EdcStatus>('/api/admin/edc'));
   }

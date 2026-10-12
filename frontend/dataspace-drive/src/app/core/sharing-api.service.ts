@@ -64,6 +64,9 @@ export interface ShareSummary {
   revision: number;
   /** Mindestens eine geteilte Datei hat inzwischen eine neuere Version. */
   hasNewerVersions: boolean;
+  approval: 'NotRequired' | 'Pending' | 'Approved' | 'Rejected';
+  decidedByName: string | null;
+  decisionNote: string | null;
 }
 
 export interface RetrievalInfo {
@@ -142,6 +145,22 @@ export class SharingApiService {
     return firstValueFrom(this.http.post<ShareSummary>(`/api/shares/${shareId}/update`, { message: message || null }));
   }
 
+  approvals(): Promise<ShareSummary[]> {
+    return firstValueFrom(this.http.get<ShareSummary[]>('/api/approvals'));
+  }
+
+  approve(shareId: string): Promise<ShareSummary> {
+    return firstValueFrom(this.http.post<ShareSummary>(`/api/approvals/${shareId}/approve`, {}));
+  }
+
+  reject(shareId: string, reason: string): Promise<ShareSummary> {
+    return firstValueFrom(this.http.post<ShareSummary>(`/api/approvals/${shareId}/reject`, { reason: reason || null }));
+  }
+
+  approvalContentUrl(shareId: string, itemKey: string): string {
+    return `/api/approvals/${shareId}/items/${encodeURIComponent(itemKey)}/content`;
+  }
+
   revokeShare(shareId: string): Promise<ShareSummary> {
     return firstValueFrom(this.http.post<ShareSummary>(`/api/shares/${shareId}/revoke`, {}));
   }
@@ -180,7 +199,7 @@ export class SharingApiService {
 }
 
 const deliveryLabels: Record<DeliveryState, string> = {
-  Requested: 'angefordert',
+  Requested: 'wartet auf Prüfung',
   Provisioning: 'wird angelegt',
   ProvisioningFailed: 'Anlage fehlgeschlagen',
   Rejected: 'abgelehnt',

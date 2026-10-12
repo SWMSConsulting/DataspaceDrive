@@ -57,6 +57,9 @@
       (onValueChanged)="expiresAt.set($event.value)"
     ></dx-date-box>
 
+    @if (auth.me()?.sharingRequiresApproval) {
+      <p class="privacy approval">Vier-Augen-Prinzip: Die Freigabe wird erst bereitgestellt, wenn eine zweite Person sie geprüft hat.</p>
+    }
     <p class="privacy">
       Titel, Nachricht, Dateinamen und Ihr Unternehmen sieht der Partner im Katalog seines Connectors. Personen werden nicht genannt.
       Jeder Partner sieht nur seine eigene Zustellung.

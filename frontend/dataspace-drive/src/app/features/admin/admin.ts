@@ -37,6 +37,7 @@ export class Admin {
 
   readonly spaces = signal<TeamSpace[]>([]);
   readonly edc = signal<EdcStatus | null>(null);
+  readonly requireApproval = signal(false);
   readonly checking = signal(false);
   readonly users = signal<KnownUser[]>([]);
 
@@ -82,12 +83,31 @@ export class Admin {
 
   async reload(): Promise<void> {
     try {
-      const [spaces, users, edc] = await Promise.all([this.api.teamSpaces(), this.api.knownUsers(), this.api.edcStatus()]);
+      const [spaces, users, edc, sharing] = await Promise.all([
+        this.api.teamSpaces(),
+        this.api.knownUsers(),
+        this.api.edcStatus(),
+        this.api.sharingSettings(),
+      ]);
       this.spaces.set(spaces);
       this.users.set(users);
       this.edc.set(edc);
+      this.requireApproval.set(sharing.requireApproval);
     } catch (error) {
       notify(errorText(error), 'error', 4000);
+    }
+  }
+
+  async setRequireApproval(value: boolean): Promise<void> {
+    if (value === this.requireApproval()) {
+      return;
+    }
+    try {
+      const saved = await this.api.updateSharingSettings(value);
+      this.requireApproval.set(saved.requireApproval);
+      notify(value ? 'Vier-Augen-Prinzip eingeschaltet.' : 'Vier-Augen-Prinzip ausgeschaltet.', 'success', 3000);
+    } catch (error) {
+      notify(errorText(error), 'error', 5000);
     }
   }
 

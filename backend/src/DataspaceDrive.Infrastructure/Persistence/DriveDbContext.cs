@@ -3,6 +3,7 @@ using DataspaceDrive.Core.Audit;
 using DataspaceDrive.Core.Files;
 using DataspaceDrive.Core.Inbox;
 using DataspaceDrive.Core.Partners;
+using DataspaceDrive.Core.Settings;
 using DataspaceDrive.Core.Shares;
 using DataspaceDrive.Core.Users;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
@@ -29,6 +30,7 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
     public DbSet<DeliveryTask> DeliveryTasks => Set<DeliveryTask>();
     public DbSet<IncomingOffer> IncomingOffers => Set<IncomingOffer>();
     public DbSet<IncomingItem> IncomingItems => Set<IncomingItem>();
+    public DbSet<InstanceSetting> Settings => Set<InstanceSetting>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -119,6 +121,14 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
 
         model.Entity<DataProtectionKey>().ToTable("data_protection_keys");
 
+        model.Entity<InstanceSetting>(e =>
+        {
+            e.ToTable("settings");
+            e.HasKey(x => x.Key);
+            e.Property(x => x.Key).HasMaxLength(100);
+            e.Property(x => x.Value).HasMaxLength(2000);
+        });
+
         model.Entity<Partner>(e =>
         {
             e.ToTable("partners");
@@ -141,6 +151,9 @@ public sealed class DriveDbContext(DbContextOptions<DriveDbContext> options) : D
             e.Property(x => x.Message).HasMaxLength(2000);
             e.Property(x => x.SourceFileIds).HasMaxLength(20000);
             e.Property(x => x.SourceFolderIds).HasMaxLength(4000);
+            e.Property(x => x.Approval).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.DecisionNote).HasMaxLength(1000);
+            e.HasIndex(x => x.Approval);
             e.HasIndex(x => x.CreatedBy);
             e.HasIndex(x => x.LineageId);
             e.HasOne<DriveUser>().WithMany().HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.Restrict);

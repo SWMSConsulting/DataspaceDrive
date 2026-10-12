@@ -2,6 +2,7 @@ using DataspaceDrive.Core.Access;
 using DataspaceDrive.Core.Files;
 using DataspaceDrive.Core.Inbox;
 using DataspaceDrive.Core.Partners;
+using DataspaceDrive.Core.Settings;
 using DataspaceDrive.Core.Scanning;
 using DataspaceDrive.Core.Shares;
 using DataspaceDrive.Core.Storage;
@@ -64,6 +65,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<EdcConnection>();
         services.AddScoped<IPartnerService, PartnerService>();
         services.AddScoped<IShareService, ShareService>();
+        services.AddScoped<IInstanceSettings, InstanceSettingsService>();
         services.AddScoped<IInboxService, InboxService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddSingleton<InboxPoller>();

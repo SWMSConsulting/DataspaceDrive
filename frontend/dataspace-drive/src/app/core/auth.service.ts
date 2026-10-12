@@ -11,6 +11,10 @@ export interface Me {
   canShareExternally: boolean;
   canManageInbox: boolean;
   isAdmin: boolean;
+  /** Rolle drive-approver: prüft Freigaben anderer. */
+  canApprove: boolean;
+  /** Vier-Augen-Prinzip eingeschaltet: Freigaben warten auf Prüfung. */
+  sharingRequiresApproval: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -22,6 +22,21 @@ public sealed class Share
     public string? SourceFileIds { get; set; }
 
     public string? SourceFolderIds { get; set; }
+
+    /// <summary>Vier-Augen-Prinzip: Prüfung vor der Bereitstellung.</summary>
+    public ShareApproval Approval { get; set; } = ShareApproval.NotRequired;
+
+    public Guid? DecidedBy { get; set; }
+    public DateTime? DecidedAt { get; set; }
+    public string? DecisionNote { get; set; }
+}
+
+public enum ShareApproval
+{
+    NotRequired,
+    Pending,
+    Approved,
+    Rejected,
 }
 
 /// <summary>Datei einer Freigabe als Schnappschuss der Version zum Zeitpunkt des Teilens.</summary>
