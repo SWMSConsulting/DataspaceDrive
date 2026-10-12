@@ -22,7 +22,7 @@
     [dataSource]="visibleOffers()"
     keyExpr="id"
     [wordWrapEnabled]="true"
-    [columnHidingEnabled]="true"
+   
     noDataText="Keine offenen Angebote."
   >
     <dxo-master-detail [enabled]="true" template="items"></dxo-master-detail>
@@ -33,12 +33,11 @@
       sortOrder="desc"
       [width]="200"
       cellTemplate="fromCell"
-      [hidingPriority]="3"
+     
     ></dxi-column>
     <dxi-column caption="Freigabe" [calculateCellValue]="formatTitle" [minWidth]="220" cellTemplate="titleCell"></dxi-column>
-    <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="96" alignment="right" [hidingPriority]="1"></dxi-column>
-    <dxi-column dataField="expiresAt" caption="Abrufbar bis" dataType="date" [width]="110" [hidingPriority]="0"></dxi-column>
-    <dxi-column caption="Status" [calculateCellValue]="formatState" [width]="160" cellTemplate="stateCell" [hidingPriority]="2"></dxi-column>
+    <dxi-column dataField="expiresAt" caption="Abrufbar bis" dataType="date" [width]="126"></dxi-column>
+    <dxi-column caption="Status" [calculateCellValue]="formatState" [width]="160" cellTemplate="stateCell"></dxi-column>
     <dxi-column caption="" [width]="230" cellTemplate="actions"></dxi-column>
 
     <div *dxTemplate="let cell of 'fromCell'">
@@ -48,7 +47,7 @@
 
     <div *dxTemplate="let cell of 'titleCell'">
       <div class="cell-primary">{{ cell.value }}</div>
-      <div class="cell-secondary">{{ formatFiles(cell.data) }}</div>
+      <div class="cell-secondary">{{ formatFiles(cell.data) }} · {{ formatSize(cell.data) }}</div>
     </div>
     <div *dxTemplate="let cell of 'stateCell'">
       <span [class]="'pill pill-' + tone(cell.data)">{{ cell.value }}</span>

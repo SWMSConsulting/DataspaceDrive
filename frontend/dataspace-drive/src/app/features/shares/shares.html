@@ -24,23 +24,22 @@
     [dataSource]="visibleShares()"
     keyExpr="id"
     [wordWrapEnabled]="true"
-    [columnHidingEnabled]="true"
+   
     noDataText="Keine laufenden Freigaben."
   >
     <dxo-master-detail [enabled]="true" template="deliveries"></dxo-master-detail>
-    <dxi-column caption="Freigabe" [calculateCellValue]="formatTitle" [minWidth]="240" cellTemplate="titleCell"></dxi-column>
-    <dxi-column caption="Empfänger" [calculateCellValue]="formatRecipients" [minWidth]="200" cellTemplate="recipientsCell" [hidingPriority]="3"></dxi-column>
-    <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="96" alignment="right" [hidingPriority]="1"></dxi-column>
-    <dxi-column dataField="createdAt" caption="Geteilt" dataType="datetime" sortOrder="desc" [width]="150" [hidingPriority]="2"></dxi-column>
-    <dxi-column dataField="expiresAt" caption="Abrufbar bis" dataType="date" [width]="110" [hidingPriority]="0"></dxi-column>
+    <dxi-column caption="Freigabe" [calculateCellValue]="formatTitle" [minWidth]="220" cellTemplate="titleCell"></dxi-column>
+    <dxi-column caption="Empfänger" [calculateCellValue]="formatRecipients" [minWidth]="180" cellTemplate="recipientsCell"></dxi-column>
+    <dxi-column dataField="createdAt" caption="Geteilt" dataType="datetime" sortOrder="desc" [width]="150"></dxi-column>
+    <dxi-column dataField="expiresAt" caption="Abrufbar bis" dataType="date" [width]="126"></dxi-column>
     @if (showAll()) {
       <dxi-column dataField="createdByName" caption="Von" [width]="140"></dxi-column>
     }
-    <dxi-column caption="" [width]="260" cellTemplate="shareActions"></dxi-column>
+    <dxi-column caption="" [width]="240" cellTemplate="shareActions"></dxi-column>
 
     <div *dxTemplate="let cell of 'titleCell'">
       <div class="cell-primary">{{ cell.value }}</div>
-      <div class="cell-secondary">{{ formatFiles(cell.data) }}</div>
+      <div class="cell-secondary">{{ formatFiles(cell.data) }} · {{ formatSize(cell.data) }}</div>
       @if (cell.data.hasNewerVersions && canUpdate(cell.data)) {
         <div class="cell-note note-warning">Neuere Version vorhanden</div>
       }

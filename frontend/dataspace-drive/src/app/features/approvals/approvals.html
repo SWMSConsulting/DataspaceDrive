@@ -12,18 +12,17 @@
 </header>
 
 <section class="card">
-  <dx-data-grid [dataSource]="pending()" keyExpr="id" [wordWrapEnabled]="true" [columnHidingEnabled]="true" noDataText="Nichts zu prüfen.">
+  <dx-data-grid [dataSource]="pending()" keyExpr="id" [wordWrapEnabled]="true" noDataText="Nichts zu prüfen.">
     <dxo-master-detail [enabled]="true" template="items"></dxo-master-detail>
     <dxi-column dataField="createdAt" caption="Angefordert" dataType="datetime" sortOrder="asc" [width]="150"></dxi-column>
     <dxi-column caption="Freigabe" [calculateCellValue]="formatTitle" [minWidth]="220" cellTemplate="titleCell"></dxi-column>
     <dxi-column caption="An" [calculateCellValue]="formatRecipients" [width]="210"></dxi-column>
-    <dxi-column caption="Größe" [calculateCellValue]="formatSize" [width]="96" alignment="right" [hidingPriority]="1"></dxi-column>
-    <dxi-column dataField="expiresAt" caption="Abrufbar bis" dataType="date" [width]="110" [hidingPriority]="0"></dxi-column>
+    <dxi-column dataField="expiresAt" caption="Abrufbar bis" dataType="date" [width]="126"></dxi-column>
     <dxi-column caption="" [width]="220" cellTemplate="actions"></dxi-column>
 
     <div *dxTemplate="let cell of 'titleCell'">
       <div class="cell-primary">{{ cell.value }}</div>
-      <div class="cell-secondary">von {{ cell.data.createdByName }}</div>
+      <div class="cell-secondary">von {{ cell.data.createdByName }} · {{ formatSize(cell.data) }}</div>
     </div>
     <div *dxTemplate="let cell of 'actions'">
       <div class="row-actions">

@@ -13,13 +13,13 @@
 </header>
 
 <section class="card">
-  <dx-data-grid [dataSource]="partners()" keyExpr="id" [wordWrapEnabled]="true" [columnHidingEnabled]="true" noDataText="Noch keine Partner.">
+  <dx-data-grid [dataSource]="partners()" keyExpr="id" [wordWrapEnabled]="true" noDataText="Noch keine Partner.">
     <dxo-master-detail [enabled]="true" template="details"></dxo-master-detail>
     <dxi-column dataField="name" caption="Partner" [minWidth]="200" sortOrder="asc" cellTemplate="nameCell"></dxi-column>
     <dxi-column caption="Status" [calculateCellValue]="formatStatus" [width]="180" cellTemplate="statusCell"></dxi-column>
-    <dxi-column caption="Austausch" [calculateCellValue]="formatFlags" [width]="130" [hidingPriority]="0"></dxi-column>
-    <dxi-column caption="Automatisch annehmen" [calculateCellValue]="formatAutoAccept" [width]="160" [hidingPriority]="1"></dxi-column>
-    <dxi-column caption="Benachrichtigung" [width]="200" cellTemplate="notifyCell" [hidingPriority]="2"></dxi-column>
+    <dxi-column caption="Austausch" [calculateCellValue]="formatFlags" [width]="130"></dxi-column>
+    <dxi-column caption="Automatisch annehmen" [calculateCellValue]="formatAutoAccept" [width]="160"></dxi-column>
+    <dxi-column caption="Benachrichtigung" [width]="200" cellTemplate="notifyCell"></dxi-column>
     <dxi-column caption="" [width]="140" cellTemplate="actions"></dxi-column>
 
     <div *dxTemplate="let cell of 'nameCell'">

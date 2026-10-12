@@ -9,10 +9,10 @@
 </header>
 
 <section class="card">
-  <dx-data-grid [dataSource]="items()" keyExpr="id" [wordWrapEnabled]="true" [columnHidingEnabled]="true" noDataText="Der Papierkorb ist leer.">
+  <dx-data-grid [dataSource]="items()" keyExpr="id" [wordWrapEnabled]="true" noDataText="Der Papierkorb ist leer.">
     <dxi-column dataField="name" caption="Name" [minWidth]="200" cellTemplate="nameCell"></dxi-column>
-    <dxi-column dataField="originalPath" caption="Ursprünglicher Ort" [hidingPriority]="0"></dxi-column>
-    <dxi-column dataField="deletedAt" caption="Gelöscht am" dataType="datetime" sortOrder="desc" [width]="170" [hidingPriority]="1"></dxi-column>
+    <dxi-column dataField="originalPath" caption="Ursprünglicher Ort"></dxi-column>
+    <dxi-column dataField="deletedAt" caption="Gelöscht am" dataType="datetime" sortOrder="desc" [width]="170"></dxi-column>
     <dxi-column caption="" [width]="270" cellTemplate="actions"></dxi-column>
     <div *dxTemplate="let cell of 'nameCell'">
       <div class="cell-primary">{{ cell.value }}</div>
