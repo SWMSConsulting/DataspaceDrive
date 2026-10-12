@@ -6,7 +6,18 @@ Dateien sicher über den Dataspace an andere Unternehmen freigeben: eine Web-Anw
 - Jede Freigabe wird ein EDC-Angebot, das nur der adressierte Partner sieht.
 - Der Partner übernimmt die Datei nach Annahme in seine eigene DataspaceDrive.
 
-**Stand:** Phase 1 („Drive intern“) und Phase 2 („Teilen über den Dataspace“) sind umgesetzt und bei Alice und Bob im windx-Cluster ausgerollt. Nutzer geben Dateien an Partnerunternehmen frei; der Partner findet sie in seinem Eingang, nimmt sie an, und seine Drive holt sie über den Dataspace ab, prüft die Prüfsumme und den Virenscan und legt sie ab. Abnahmen: [e2e/README.md](e2e/README.md). Details in [docs/konzept-dataspace-drive-de.md](docs/konzept-dataspace-drive-de.md) und [docs/spike-ergebnisse.md](docs/spike-ergebnisse.md).
+**Stand:** Phase 1 („Drive intern“), Phase 2 („Teilen über den Dataspace“) und Phase 3 („Ausbau“) sind umgesetzt und bei Alice und Bob im windx-Cluster ausgerollt.
+
+- Nutzer geben Dateien und Ordner an Partnerunternehmen frei.
+- Der Partner findet sie wenige Sekunden später in seinem Eingang, über eine Benachrichtigung über den Dataspace. Er nimmt sie an oder lässt sie automatisch annehmen.
+- Seine Drive holt sie über den Dataspace ab, prüft Prüfsumme und Virenscan und legt sie ab.
+- Dazu kommen:
+  - neue Versionen geteilter Dateien
+  - ein optionales Vier-Augen-Prinzip
+  - eine Vorschau für Bilder, PDF und Text
+  - Hinweise in der Navigation und per E-Mail
+
+Abnahmen: [e2e/README.md](e2e/README.md). Details in [docs/konzept-dataspace-drive-de.md](docs/konzept-dataspace-drive-de.md) und [docs/spike-ergebnisse.md](docs/spike-ergebnisse.md).
 
 ## Aufbau
 
@@ -31,8 +42,9 @@ Die Rollen kommen aus dem Identity Provider (Claim `roles`):
 - `drive-admin`: legt unter „Verwaltung“ Team-Bereiche an und vergibt Lesen oder Schreiben an Rollen, Gruppen oder einzelne Nutzer. Inhalte sieht ein Administrator nur mit eigenem Eintrag.
 - `drive-external-share`: Dateien an Partnerunternehmen freigeben (aus Team-Bereichen nur, wenn die Verwaltung das erlaubt).
 - `drive-inbox`: Angebote der Partner im Eingang annehmen oder ablehnen.
+- `drive-approver`: Freigaben unter „Freigaben prüfen“ freigeben oder ablehnen, wenn die Verwaltung das Vier-Augen-Prinzip eingeschaltet hat. Eigene Freigaben prüft eine zweite Person.
 
-Partner pflegt die Verwaltung unter „Partner“ mit BPN und DSP-Adresse; die DID löst der eigene Connector auf. Die Seite „Verwaltung“ zeigt außerdem den Abgleich mit dem Connector (offene oder verwaiste Contract Definitions).
+Partner pflegt die Verwaltung unter „Partner“ mit BPN und DSP-Adresse; die DID löst der eigene Connector auf. Je Partner lässt sich die automatische Annahme einstellen: aus, nur Aktualisierungen bereits angenommener Freigaben, oder alle Angebote in einen festen Ordner. Die Seite „Verwaltung“ zeigt außerdem den Abgleich mit dem Connector (offene oder verwaiste Contract Definitions).
 
 ## Lokal entwickeln
 
@@ -75,6 +87,11 @@ kubectl -n windx-<teilnehmer> create secret generic dataspace-drive-<teilnehmer>
 Der Token-Schlüssel muss stabil bleiben: Er steckt in den `authCode`s aller veröffentlichten Zustell-Assets. Zum Rotieren einen zusätzlichen Schlüssel `delivery-token-key-2` anlegen und die aktuelle Version umstellen; alte Zustellungen bleiben gültig.
 
 Im windx-Dataspace nutzen die Instanzen gemeinsame Demo-Dienste im Namespace `windx-shared`: einen Keycloak mit einem Realm je Unternehmen (`https://sso-windx.cluster.swms-cloud.com/realms/<teilnehmer>`) und einen ClamAV. `deploy/windx-shared/deploy.sh` legt sie an, erzeugt Zufalls-Passwörter und ergänzt in den Drive-Secrets `oidc-client-secret` und `postgres-password`. Die Demo-Zugangsdaten landen lokal in `deploy/windx-shared/zugangsdaten.local.md` (von Git ausgeschlossen). Beim Kunden zeigt `oidc.authority` auf dessen Identity Provider, und ClamAV läuft eingebettet (`clamav.enabled=true`) oder als vorhandener Dienst. ClamAV prüft höchstens 2 GiB - 1 Byte; mit Virenscan nimmt die Drive deshalb Dateien bis 2047 MiB an, denn ungeprüfte Dateien blieben gesperrt.
+
+Weitere Helm-Werte:
+- `sharing.contractProfile`: Vertragsprofil der Freigaben, `membership` (Standard) oder `cx`. `cx` setzt passende DataExchangeGovernance-Credentials bei allen Partnern voraus.
+- `sharing.requireApproval`: Anfangswert des Vier-Augen-Prinzips; die Verwaltung schaltet es in der Oberfläche um.
+- `mail.*`: SMTP für E-Mail-Hinweise. Ohne `mail.smtpHost` verschickt die Drive keine E-Mails; ein Passwort steht optional im Secret unter `smtp-password`. In der windx-Demo fängt ein Mailpit in `windx-shared` alle E-Mails ab (`kubectl -n windx-shared port-forward deploy/mailpit 8025:8025`, dann http://localhost:8025).
 
 Hinweise für das erste Deployment:
 - Die NetworkPolicy lässt Port 8080 nur aus `ingress-nginx` und Port 8090 nur aus den Dataplane-Pods zu. Beim ersten Rollout prüfen, dass die HTTP-Probes des Kubelets durchkommen (Calico erlaubt Verkehr vom eigenen Node üblicherweise).

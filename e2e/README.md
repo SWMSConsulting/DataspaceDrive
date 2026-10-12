@@ -65,4 +65,32 @@ kubectl -n windx-shared exec drive-acceptance -- sh -c \
 
 Die Phase-1-Abnahme braucht im Pod ebenfalls `drive_client.py` neben `phase1_acceptance.py`.
 
-Das Skript gibt keine Passwörter aus. Es braucht Python 3.9+ und `requests`.
+## Phase 3: Ausbau
+
+`phase3_acceptance.py` prüft die Funktionen der Phase 3 zwischen zwei Drive-Instanzen (Standard Alice → Bob):
+
+- F1: Ordner mit Unterordner teilen
+- F2: neue Version einer geteilten Datei
+- F3: Vier-Augen-Prinzip
+- F4: automatische Annahme
+- F5: Vorschau
+- F6: Hinweise in der Navigation
+- F7: Benachrichtigung über den Dataspace (Angebot ohne „Jetzt prüfen“)
+
+Das Skript schaltet für F3 das Vier-Augen-Prinzip und für F4 die automatische Annahme um und setzt beides auf den vorherigen Stand zurück:
+- das Vier-Augen-Prinzip direkt nach F3
+- die automatische Annahme beim Abräumen, auch nach einer gescheiterten Prüfung, aber nicht mit `--keep`
+
+```bash
+cd e2e && python3 phase3_acceptance.py                            # lokal
+# im Cluster (Runner wie oben, drei Dateien kopieren):
+for f in drive_client.py phase2_acceptance.py phase3_acceptance.py; do
+  kubectl -n windx-shared exec -i drive-acceptance -- sh -c "cat > /tmp/$f" < e2e/$f
+done
+kubectl -n windx-shared exec drive-acceptance -- sh -c \
+  'cd /tmp && setsid nohup python3 -u phase3_acceptance.py > /tmp/run3.log 2>&1 < /dev/null &'
+```
+
+Lokal hängt das Ergebnis an der eigenen Verbindung. Ein Ruhezustand des Rechners oder abreißende Verbindungen zeigen sich als Zeitüberschreitung, nicht als Fehler der Drive. Im Zweifel im Cluster wiederholen.
+
+Die Skripte geben keine Passwörter aus. Sie brauchen Python 3.9+ und `requests`.
