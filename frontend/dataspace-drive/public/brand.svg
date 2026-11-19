@@ -1,19 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>DataspaceDrive</title>
   <defs>
-    <linearGradient id="fill" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0a84ff"/>
-      <stop offset="0.55" stop-color="#3cb8ff"/>
-      <stop offset="1" stop-color="#2fd6c6"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#48484a"/>
+      <stop offset="1" stop-color="#1c1c1e"/>
     </linearGradient>
     <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.32"/>
-      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" rx="9" fill="url(#fill)"/>
-  <rect width="32" height="32" rx="9" fill="url(#shine)"/>
-  <path d="M7.5 11.2a2 2 0 0 1 2-2h3.6l1.9 2.1h7.5a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linejoin="round"/>
-  <path d="M14.4 17.6h3.2" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round"/>
-  <circle cx="12.6" cy="17.6" r="1.75" fill="#ffffff"/>
-  <circle cx="19.4" cy="17.6" r="1.75" fill="#ffffff"/>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <rect width="64" height="64" rx="15" fill="url(#shine)"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="14.5" fill="none" stroke="#ffffff" stroke-opacity="0.14"/>
+  <g fill="none" stroke-width="4.6" stroke-linecap="round">
+    <path d="M16.5 18.5 L10 28.5" stroke="#a2c617"/>
+    <path d="M10 28.5 L16.5 38.5" stroke="#94bb1b"/>
+    <path d="M47.5 25.5 L54 35.5" stroke="#94bb1b"/>
+    <path d="M54 35.5 L47.5 45.5" stroke="#a2c617"/>
+  </g>
+  <path d="M22 25.5 A2.4 2.4 0 0 1 24.4 23.1 H29.6 L32.2 25.8 H39.6 A2.4 2.4 0 0 1 42 28.2 V38.6 A2.4 2.4 0 0 1 39.6 41 H24.4 A2.4 2.4 0 0 1 22 38.6 Z" fill="none" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/>
 </svg>

@@ -37,7 +37,7 @@
 .brand-mark {
   flex: none;
   border-radius: 9px;
-  box-shadow: 0 6px 16px rgba(10, 132, 255, 0.32);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }
 
 .brand-text {
@@ -139,6 +139,18 @@
   gap: 8px;
   padding-top: 10px;
   border-top: 1px solid var(--separator);
+}
+
+// SWMS-Logo: einmal pro App, klein und ruhig. Das Grau (#8A8A8E) ist auf hellem und dunklem Grund lesbar.
+.made-by {
+  display: block;
+  padding: 10px 8px 2px;
+
+  img {
+    display: block;
+    width: 96px;
+    height: auto;
+  }
 }
 
 .user {

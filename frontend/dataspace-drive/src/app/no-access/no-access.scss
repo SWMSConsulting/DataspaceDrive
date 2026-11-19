@@ -25,9 +25,16 @@
 .mark {
   margin-bottom: 20px;
   border-radius: 15px;
-  box-shadow: 0 10px 26px rgba(10, 132, 255, 0.32);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
 }
 
 .page-subtitle {
   margin: 12px auto 26px;
+}
+
+.made-by {
+  display: block;
+  width: 120px;
+  height: auto;
+  margin: 28px auto 0;
 }
